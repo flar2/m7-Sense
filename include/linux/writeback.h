@@ -56,7 +56,8 @@ struct writeback_control {
 	unsigned for_background:1;	
 	unsigned tagged_writepages:1;	
 	unsigned for_reclaim:1;		
-	unsigned range_cyclic:1;	
+	unsigned range_cyclic:1;
+	unsigned for_sync:1;	
 };
 
 	
