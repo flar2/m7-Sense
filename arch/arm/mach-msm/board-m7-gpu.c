@@ -267,7 +267,7 @@ void __init m7_init_gpu(void)
 {
 	unsigned int version = socinfo_get_version();
 	if (max_gpu == 1)
-		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 450000000;
+		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 487500000;
 
 	if (max_gpu == 2)
 		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 533333000;
