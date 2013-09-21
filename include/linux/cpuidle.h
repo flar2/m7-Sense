@@ -31,6 +31,7 @@ struct cpuidle_driver;
 struct cpuidle_state_usage {
 	void		*driver_data;
 
+	unsigned long long	disable;
 	unsigned long long	usage;
 	unsigned long long	time; 
 };
