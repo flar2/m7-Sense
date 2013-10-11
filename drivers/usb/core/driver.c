@@ -1030,8 +1030,8 @@ static int usb_resume_both(struct usb_device *udev, pm_message_t msg)
 	
 	if (status == 0 && udev->actconfig) {
 		
-		int n = udev->actconfig->desc.bNumInterfaces;
-		dev_info(&udev->dev, "%s[%d] resume intf n:%d\n", __func__, __LINE__, n);
+		//int n = udev->actconfig->desc.bNumInterfaces;
+		//dev_info(&udev->dev, "%s[%d] resume intf n:%d\n", __func__, __LINE__, n);
 		
 
 		for (i = 0; i < udev->actconfig->desc.bNumInterfaces; i++) {

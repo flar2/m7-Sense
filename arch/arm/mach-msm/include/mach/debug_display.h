@@ -8,9 +8,9 @@
 #define PR_DISP_ERR(fmt, args...) 		printk(KERN_ERR "[DISP] "fmt, ##args);
 #define PR_DISP_WARN(fmt, args...) 		printk(KERN_WARNING "[DISP] "fmt, ##args);
 #define PR_DISP_NOTICE(fmt, args...) 	printk(KERN_NOTICE "[DISP] "fmt, ##args);
-#define PR_DISP_INFO(fmt, args...) 		printk(KERN_INFO "[DISP] "fmt, ##args)
+#define PR_DISP_INFO(fmt, args...) 		pr_debug(KERN_INFO "[DISP] "fmt, ##args)
 #define PR_DISP_CONT(fmt, args...) 		printk(KERN_CONT "[DISP] "fmt, ##args);
-#define PR_DISP_DEBUG(fmt, args...) 		printk(KERN_DEBUG "[DISP] "fmt, ##args);
+#define PR_DISP_DEBUG(fmt, args...) 		pr_debug(KERN_DEBUG "[DISP] "fmt, ##args);
 
 #endif 
 

@@ -624,7 +624,7 @@ static void monitor_tsens_status(struct work_struct *work)
 	int_status = readl_relaxed(TSENS_INT_STATUS_ADDR);
 	config = readl_relaxed(TSENS_8960_CONFIG_ADDR);
 
-	pr_info("TSENS_CNTL_ADDR[0x%08X], TSENS_THRESHOLD_ADDR[0x%08X], TSENS_INT_STATUS_ADDR[0x%08X], TSENS_8960_CONFIG_ADDR[0x%08X]\n", cntl, threshold, int_status, config);
+	pr_debug("TSENS_CNTL_ADDR[0x%08X], TSENS_THRESHOLD_ADDR[0x%08X], TSENS_INT_STATUS_ADDR[0x%08X], TSENS_8960_CONFIG_ADDR[0x%08X]\n", cntl, threshold, int_status, config);
 
 	if (tmdev->hw_type == APQ_8064)
 		cntl &= (uint32_t) TSENS_8064_SENSORS_EN;

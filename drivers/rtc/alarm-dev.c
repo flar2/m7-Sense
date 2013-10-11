@@ -118,8 +118,8 @@ static long alarm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 from_old_alarm_set:
 		spin_lock_irqsave(&alarm_slock, flags);
-		pr_alarm(INFO, "alarm %d set %ld.%09ld\n", alarm_type,
-			new_alarm_time.tv_sec, new_alarm_time.tv_nsec);
+		//pr_alarm(INFO, "alarm %d set %ld.%09ld\n", alarm_type,
+		//	new_alarm_time.tv_sec, new_alarm_time.tv_nsec);
 		alarm_enabled |= alarm_type_mask;
 		alarm_start_range(&alarms[alarm_type],
 			timespec_to_ktime(new_alarm_time),

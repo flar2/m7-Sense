@@ -713,7 +713,7 @@ static bool msm_pm_power_collapse(bool from_idle)
 	}
 
 	if ((!from_idle) && (MSM_PM_DEBUG_CLOCK & msm_pm_debug_mask))
-		pr_info("CPU%u: %s: change clock rate (old rate = %lu)\n",
+		pr_debug("CPU%u: %s: change clock rate (old rate = %lu)\n",
 			cpu, __func__, saved_acpuclk_rate);
 
 	collapsed = msm_pm_spm_power_collapse(cpu, from_idle, true);

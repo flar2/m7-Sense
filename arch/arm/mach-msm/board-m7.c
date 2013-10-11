@@ -3611,14 +3611,14 @@ static int capella_pl_sensor_lpm_power(uint8_t enable)
 	int rc = 0;
 
 	mutex_lock(&pl_sensor_lock);
-	pr_info("[PS][cm3629] %s: pl_sensor_lock lock\n", __func__);
+	pr_debug("[PS][cm3629] %s: pl_sensor_lock lock\n", __func__);
 
 	if (pl_reg_l16 == NULL) {
 		pl_reg_l16 = regulator_get(NULL, "8921_l16");
 		if (IS_ERR(pl_reg_l16)) {
 			pr_err("[PS][cm3629] %s: Unable to get '8921_l16' \n", __func__);
 			mutex_unlock(&pl_sensor_lock);
-			pr_info("[PS][cm3629] %s: pl_sensor_lock unlock 1\n", __func__);
+			pr_debug("[PS][cm3629] %s: pl_sensor_lock unlock 1\n", __func__);
 			return -ENODEV;
 		}
 	}
@@ -3632,7 +3632,7 @@ static int capella_pl_sensor_lpm_power(uint8_t enable)
 			pr_err("'%s' regulator enable failed, rc=%d\n",
 				"pl_reg_l16", rc);
 			mutex_unlock(&pl_sensor_lock);
-			pr_info("[PS][cm3629] %s: pl_sensor_lock unlock 2\n", __func__);
+			pr_debug("[PS][cm3629] %s: pl_sensor_lock unlock 2\n", __func__);
 			return rc;
 		}
 		pr_info("[PS][cm3629] %s: enter lmp,OK\n", __func__);
@@ -3646,14 +3646,14 @@ static int capella_pl_sensor_lpm_power(uint8_t enable)
 			pr_err("'%s' regulator enable failed, rc=%d\n",
 				"pl_reg_l16", rc);
 			mutex_unlock(&pl_sensor_lock);
-			pr_info("[PS][cm3629] %s: pl_sensor_lock unlock 3\n", __func__);
+			pr_debug("[PS][cm3629] %s: pl_sensor_lock unlock 3\n", __func__);
 			return rc;
 		}
-		pr_info("[PS][cm3629] %s: leave lmp,OK\n", __func__);
+		pr_debug("[PS][cm3629] %s: leave lmp,OK\n", __func__);
 		usleep(10);
 	}
 	mutex_unlock(&pl_sensor_lock);
-	pr_info("[PS][cm3629] %s: pl_sensor_lock unlock 4\n", __func__);
+	pr_debug("[PS][cm3629] %s: pl_sensor_lock unlock 4\n", __func__);
 	return rc;
 }
 static struct cm3629_platform_data cm36282_pdata_sk2 = {
