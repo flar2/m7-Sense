@@ -618,7 +618,7 @@ static void hdmi_msm_setup_video_mode_lut(void)
 	HDMI_SETUP_LUT(720x480p60_16_9);
 	HDMI_SETUP_LUT(1280x720p60_16_9);
 	
-	HDMI_SETUP_LUT(1440x480i60_4_3);
+/*	HDMI_SETUP_LUT(1440x480i60_4_3);
 	HDMI_SETUP_LUT(1440x480i60_16_9);
 	
 	HDMI_SETUP_LUT(720x576p50_4_3);
@@ -627,7 +627,7 @@ static void hdmi_msm_setup_video_mode_lut(void)
 	HDMI_SETUP_LUT(1440x576i50_4_3);
 	HDMI_SETUP_LUT(1440x576i50_16_9);
 	
-	HDMI_SETUP_LUT(1920x1080p24_16_9);
+	HDMI_SETUP_LUT(1920x1080p24_16_9); */
 }
 
 #ifdef PORT_DEBUG
@@ -4089,7 +4089,7 @@ static int __init hdmi_msm_init(void)
 			hdmi_prim_resolution - 1;
 	else
 		external_common_state->video_resolution =
-			HDMI_VFRMT_1920x1080p24_16_9;
+			HDMI_VFRMT_1280x720p60_16_9;
 
 #ifdef CONFIG_FB_MSM_HDMI_3D
 	external_common_state->switch_3d = hdmi_msm_switch_3d;
