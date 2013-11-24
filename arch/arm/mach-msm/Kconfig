@@ -3099,5 +3099,11 @@ config IOEXTENDER
         bool "Enable IOEXTENDER feature"
 	help
 	 To support IOEXTENDER feature
+
+config UPDATE_LCDC_LUT
+	default y
+	bool "enable LCDC LUT"
+	help
+	  enable LCDC LUT
 endif
 
