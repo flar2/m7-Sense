@@ -9,6 +9,8 @@
 # * RTC chip drivers go to drivers/rtc
 # * I/O expander drivers go to drivers/gpio
 #
+ccflags-y := -Wno-maybe-uninitialized
+
 proximity-objs := cm3629.o
 obj-$(CONFIG_SENSORS_NFC_PN544) += pn544.o
 obj-$(CONFIG_AMP_TFA9887)	+= tfa9887.o

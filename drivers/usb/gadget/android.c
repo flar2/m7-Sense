@@ -583,7 +583,7 @@ static void rmnet_function_cleanup(struct android_usb_function *f)
 static int rmnet_function_bind_config(struct android_usb_function *f,
 					 struct usb_configuration *c)
 {
-	int i, err;
+	int i, err = 0;
 
 	for (i = 0; i < rmnet_nports; i++) {
 		err = frmnet_bind_config(c, i);

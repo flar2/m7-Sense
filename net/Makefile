@@ -5,6 +5,8 @@
 # Rewritten to use lists instead of if-statements.
 #
 
+ccflags-y := -Wno-maybe-uninitialized
+
 obj-y	:= nonet.o
 
 obj-$(CONFIG_NET)		:= socket.o core/

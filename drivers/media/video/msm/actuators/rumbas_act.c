@@ -1443,7 +1443,7 @@ static struct msm_actuator_get_ois_cal_info_t cal_info;
 int32_t  rumbas_act_read_cal_data(void)
 {
 	int32_t rc = 0;
-	uint8_t byte_data[8];
+	uint8_t byte_data[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 	int16_t *x_offset_ptr;
 	int16_t *y_offset_ptr;

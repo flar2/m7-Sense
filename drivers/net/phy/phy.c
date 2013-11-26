@@ -141,7 +141,7 @@ static inline int phy_find_setting(int speed, int duplex)
 	return idx < MAX_NUM_SETTINGS ? idx : MAX_NUM_SETTINGS - 1;
 }
 
-static inline int phy_find_valid(int idx, u32 features)
+static inline int phy_find_valid(unsigned int idx, u32 features)
 {
 	while (idx < MAX_NUM_SETTINGS && !(settings[idx].setting & features))
 		idx++;

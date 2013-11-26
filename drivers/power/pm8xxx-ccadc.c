@@ -610,7 +610,7 @@ DEFINE_SIMPLE_ATTRIBUTE(calc_fops, get_calc, NULL, "%lld\n");
 
 void dump_all(void)
 {
-	u64 val;
+	u64 val = 0;
 	unsigned int len =0;
 
 	memset(batt_log_buf, 0, sizeof(BATT_LOG_BUF_LEN));

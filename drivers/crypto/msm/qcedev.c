@@ -835,9 +835,9 @@ static int qcedev_sha_update(struct qcedev_async_req *qcedev_areq,
 				struct qcedev_handle *handle)
 {
 	int err = 0;
-	int i = 0;
-	int j = 0;
-	int k = 0;
+	unsigned int i = 0;
+	unsigned int j = 0;
+	unsigned int k = 0;
 	int num_entries = 0;
 	uint32_t total = 0;
 
@@ -1356,9 +1356,9 @@ static int qcedev_pmem_ablk_cipher(struct qcedev_async_req *qcedev_areq,
 						struct qcedev_handle *handle)
 {
 	int err = 0;
-	int i = 0;
-	int j = 0;
-	int k = 0;
+	unsigned int i = 0;
+	unsigned int j = 0;
+	unsigned int k = 0;
 	int num_entries = 0;
 	uint32_t total = 0;
 	struct qcedev_cipher_op_req *saved_req;
@@ -1567,9 +1567,9 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 {
 	int err = 0;
 	int di = 0;
-	int i = 0;
-	int j = 0;
-	int k = 0;
+	unsigned int i = 0;
+	unsigned int j = 0;
+	unsigned int k = 0;
 	uint32_t byteoffset = 0;
 	int num_entries = 0;
 	uint32_t total = 0;
