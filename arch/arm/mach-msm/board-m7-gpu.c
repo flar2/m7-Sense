@@ -22,7 +22,7 @@
 #include "devices.h"
 #include "board-m7.h"
 
-uint32_t max_gpu = 2;
+uint32_t max_gpu = 1;
 
 #ifdef CONFIG_MSM_DCVS
 static struct msm_dcvs_freq_entry grp3d_freq[] = {
@@ -198,7 +198,7 @@ static struct kgsl_device_iommu_data kgsl_3d0_iommu_data[] = {
 static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 	.pwrlevel = {
 		{
-			.gpu_freq = 400000000,
+			.gpu_freq = 450000000,
 			.bus_freq = 4,
 			.io_fraction = 0,
 		},
@@ -245,15 +245,10 @@ struct platform_device device_kgsl_3d0 = {
 };
 
 /*gpuoc*/
-
 static int __init read_max_gpu(char *gpu_oc)
 {
 	if (strcmp(gpu_oc, "1") == 0) {
 		max_gpu = 1;
-	} else if (strcmp(gpu_oc, "2") == 0) {
-		max_gpu = 2;
-	} else if (strcmp(gpu_oc, "3") == 0) {
-		max_gpu = 3;
 	} else {
 		max_gpu = 0;
 	}	
@@ -266,14 +261,11 @@ __setup("gpu_oc=", read_max_gpu);
 void __init m7_init_gpu(void)
 {
 	unsigned int version = socinfo_get_version();
-	if (max_gpu == 1)
-		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 487500000;
-
-	if (max_gpu == 2)
-		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 533333000;
+	if (max_gpu == 0)
+		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 400000000;
 
 	if (cpu_is_apq8064ab())
-		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 450000000;
+		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 400000000;
 	if (SOCINFO_VERSION_MAJOR(version) == 2) {
 		kgsl_3d0_pdata.chipid = ADRENO_CHIPID(3, 2, 0, 2);
 	} else {
