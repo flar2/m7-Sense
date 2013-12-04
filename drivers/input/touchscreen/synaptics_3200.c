@@ -207,9 +207,9 @@ static void syn_handle_block_touch(struct synaptics_ts_data *ts, int enable)
 #define S2W_TIMEOUT2 60
 #define S2W_TIMEOUT3 70
 #define L2M_TIMEOUT 30
-#define DT2W_TIMEOUT_MAX 55
-#define DT2W_TIMEOUT_MIN 10
-#define DT2W_DELTA 75
+#define DT2W_TIMEOUT_MAX 80
+#define DT2W_TIMEOUT_MIN 1
+#define DT2W_DELTA 200
 #define L2W_TIMEOUT 50
 
 static bool scr_suspended = false;
