@@ -21,35 +21,40 @@
 #include <mach/cpufreq.h>
 
 #define MSM_SLEEPER_MAJOR_VERSION	1
-#define MSM_SLEEPER_MINOR_VERSION	1
+#define MSM_SLEEPER_MINOR_VERSION	2
 
 extern uint32_t maxscroff;
 extern uint32_t maxscroff_freq;
+static bool limit_set = false;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void __cpuinit msm_sleeper_early_suspend(struct early_suspend *h)
 {
-  int cpu;
+	int cpu;
 
-  for_each_possible_cpu(cpu) {
-    msm_cpufreq_set_freq_limits(cpu, MSM_CPUFREQ_NO_LIMIT, maxscroff_freq);
-          pr_info("msm-sleeper: limit max frequency to: %d\n", maxscroff_freq);
-      }
-  return; 
-
-
-
+	if (maxscroff) {
+		for_each_possible_cpu(cpu) {
+			msm_cpufreq_set_freq_limits(cpu, MSM_CPUFREQ_NO_LIMIT, maxscroff_freq);
+		}
+		limit_set = true;
+		pr_info("msm-sleeper: limit max frequency to: %d\n", maxscroff_freq);
+	}
+	return; 
 }
 
 static void __cpuinit msm_sleeper_late_resume(struct early_suspend *h)
 {
-  int cpu;
+	int cpu;
 
-  for_each_possible_cpu(cpu) {
-    msm_cpufreq_set_freq_limits(cpu, MSM_CPUFREQ_NO_LIMIT, MSM_CPUFREQ_NO_LIMIT);
-          pr_info("msm-sleeper: restore max frequency.\n");
-      }
-  return; 
+	if (!limit_set)
+		return;
+
+	for_each_possible_cpu(cpu) {
+		msm_cpufreq_set_freq_limits(cpu, MSM_CPUFREQ_NO_LIMIT, MSM_CPUFREQ_NO_LIMIT);
+	}
+	limit_set = 0;
+	pr_info("msm-sleeper: restore max frequency.\n");
+	return; 
 
 }
 
