@@ -97,7 +97,7 @@ static int __init cpufreq_read_arg_max_oc0(char *max_oc0)
 	
 	return 0;
 }
-__setup("max_oc0=", cpufreq_read_arg_max_oc0);
+__setup("oc0=", cpufreq_read_arg_max_oc0);
 
 static int __init cpufreq_read_arg_max_oc1(char *max_oc1)
 {
@@ -114,7 +114,7 @@ static int __init cpufreq_read_arg_max_oc1(char *max_oc1)
 	
 	return 0;
 }
-__setup("max_oc1=", cpufreq_read_arg_max_oc1);
+__setup("oc1=", cpufreq_read_arg_max_oc1);
 
 static int __init cpufreq_read_arg_max_oc2(char *max_oc2)
 {
@@ -131,7 +131,7 @@ static int __init cpufreq_read_arg_max_oc2(char *max_oc2)
 	
 	return 0;
 }
-__setup("max_oc2=", cpufreq_read_arg_max_oc2);
+__setup("moc2=", cpufreq_read_arg_max_oc2);
 
 static int __init cpufreq_read_arg_max_oc3(char *max_oc3)
 {
@@ -148,7 +148,7 @@ static int __init cpufreq_read_arg_max_oc3(char *max_oc3)
 	
 	return 0;
 }
-__setup("max_oc3=", cpufreq_read_arg_max_oc3);
+__setup("oc3=", cpufreq_read_arg_max_oc3);
 
 static int __init get_uv_level(char *vdd_uv)
 {
@@ -172,7 +172,7 @@ static int __init get_uv_level(char *vdd_uv)
 	return 0;
 }
 
-__setup("vdd_uv=", get_uv_level); 
+__setup("uv=", get_uv_level); 
 
 /** end elementalx defs  **/
 
