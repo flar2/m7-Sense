@@ -131,7 +131,7 @@ static int __init cpufreq_read_arg_max_oc2(char *max_oc2)
 	
 	return 0;
 }
-__setup("moc2=", cpufreq_read_arg_max_oc2);
+__setup("oc2=", cpufreq_read_arg_max_oc2);
 
 static int __init cpufreq_read_arg_max_oc3(char *max_oc3)
 {
