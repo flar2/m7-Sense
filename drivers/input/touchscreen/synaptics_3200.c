@@ -208,8 +208,7 @@ static void syn_handle_block_touch(struct synaptics_ts_data *ts, int enable)
 #define S2W_TIMEOUT3 70
 #define L2M_TIMEOUT 30
 #define DT2W_TIMEOUT_MAX 80
-#define DT2W_TIMEOUT_MIN 1
-#define DT2W_DELTA 200
+#define DT2W_DELTA 230
 #define L2W_TIMEOUT 50
 
 static bool scr_suspended = false;
@@ -456,6 +455,8 @@ static int __init get_dt2w_opt(char *dt2w)
 		dt2w_switch = 0;
 	} else if (strcmp(dt2w, "1") == 0) {
 		dt2w_switch = 1;
+	} else if (strcmp(dt2w, "2") == 0) {
+		dt2w_switch = 2;
 	} else {
 		dt2w_switch = 0;
 	}
@@ -2040,7 +2041,7 @@ static ssize_t synaptics_doubletap2wake_show(struct device *dev, struct device_a
 
 static ssize_t synaptics_doubletap2wake_dump(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
-	if (buf[0] >= '0' && buf[0] <= '1' && buf[1] == '\n')
+	if (buf[0] >= '0' && buf[0] <= '2' && buf[1] == '\n')
 	if (dt2w_switch != buf[0] - '0') {
 		dt2w_switch = buf[0] - '0';
 	}
@@ -2544,6 +2545,12 @@ static void dt2w_func(int x, int y) {
 	int delta_x = 0;
 	int delta_y = 0;
 
+	if (dt2w_switch == 1 && y < 2100)
+		return;
+
+	if (x < 150 || x > 1470)
+		return;
+
         dt2w_time[1] = dt2w_time[0];
         dt2w_time[0] = jiffies;
 
@@ -2559,12 +2566,10 @@ static void dt2w_func(int x, int y) {
 
         if (scr_suspended) {
 		if (
-		y < 2880 && y > 2100
-		&& x > 150 && x < 1470
-		&& ((dt2w_time[0]-dt2w_time[1]) > DT2W_TIMEOUT_MIN)
-		&& ((dt2w_time[0]-dt2w_time[1]) < DT2W_TIMEOUT_MAX)
-		&& (abs(delta_x) < DT2W_DELTA)
-		&& (abs(delta_y) < DT2W_DELTA)
+			y < 2880
+			&& ((dt2w_time[0]-dt2w_time[1]) < DT2W_TIMEOUT_MAX)
+			&& (abs(delta_x) < DT2W_DELTA)
+			&& (abs(delta_y) < DT2W_DELTA)
 		) {
                        // printk("[DT2W]: OFF->ON\n");
 			dt2w_time[0] = 0;
@@ -2736,7 +2741,7 @@ static void synaptics_ts_finger_func(struct synaptics_ts_data *ts)
 		}
 
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_SWEEP2WAKE
-     if ((((ts->finger_count > 0)?1:0) == 0) && scr_suspended == true && dt2w_switch == 1) { 
+     if ((((ts->finger_count > 0)?1:0) == 0) && scr_suspended == true && dt2w_switch > 0) { 
 		dt2w_func(last_touch_position_x, last_touch_position_y);
      }
 
@@ -4116,7 +4121,7 @@ static int synaptics_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	printk(KERN_INFO "[TP] %s: enter\n", __func__);
 
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_SWEEP2WAKE
-	if (s2w_switch == 1 || dt2w_switch == 1 || l2w_switch == 1) {
+	if (s2w_switch == 1 || dt2w_switch > 0 || l2w_switch == 1) {
 		//screen off, enable_irq_wake
 		enable_irq_wake(client->irq);
 	}
@@ -4353,7 +4358,7 @@ static int synaptics_ts_resume(struct i2c_client *client)
 
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_SWEEP2WAKE  
         //screen on, disable_irq_wake
-	if (s2w_switch == 1 || dt2w_switch == 1 || l2w_switch == 1)
+	if (s2w_switch == 1 || dt2w_switch > 0 || l2w_switch == 1)
 		disable_irq_wake(client->irq);
 
         if ((s2w_switch == 2 || s2w_switch == 0) && dt2w_switch == 0 && l2w_switch == 0) {
