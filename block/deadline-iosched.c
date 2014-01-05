@@ -17,7 +17,7 @@
 static const int read_expire = HZ / 2;  
 static const int write_expire = 5 * HZ; 
 static const int writes_starved = 2;    
-static const int fifo_batch = 16;       
+static const int fifo_batch = 1;       
 
 struct deadline_data {
 
