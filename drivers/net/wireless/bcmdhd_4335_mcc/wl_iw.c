@@ -3556,7 +3556,7 @@ wl_iw_event(struct net_device *dev, wl_event_msg_t *e, void* data)
 			WL_DEFAULT(("Link UP\n"));
 		}
 #endif
-		WAKE_LOCK_TIMEOUT(iw->pub, 15);
+		WAKE_LOCK_TIMEOUT(iw->pub, 10);
 		wrqu.addr.sa_family = ARPHRD_ETHER;	
 #endif
 		break;
