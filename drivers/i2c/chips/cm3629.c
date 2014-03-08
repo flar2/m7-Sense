@@ -38,7 +38,7 @@
 #include <linux/jiffies.h>
 #include <mach/board.h>
 #include <mach/board_htc.h>
-#define D(x...) pr_info(x)
+#define D(x...) pr_debug(x)
 #define I2C_RETRY_COUNT 10
 #define POLLING_PROXIMITY 1
 #define MFG_MODE 1
