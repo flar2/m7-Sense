@@ -56,7 +56,7 @@ struct workqueue_struct *stats_workqueue = NULL;
 static struct wake_lock mmc_removal_work_wake_lock;
 
 struct timer_list sd_remove_tout_timer;
-bool use_spi_crc = 1;
+bool use_spi_crc = 0;
 module_param(use_spi_crc, bool, 0);
 
 #ifdef CONFIG_MMC_UNSAFE_RESUME
