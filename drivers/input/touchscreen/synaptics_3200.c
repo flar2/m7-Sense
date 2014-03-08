@@ -41,6 +41,7 @@
 
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_SWEEP2WAKE
 #include <linux/mfd/pm8xxx/vibrator.h>
+#include <linux/wakelock.h>
 #endif
 
 #define SYN_I2C_RETRY_TIMES 10
@@ -229,6 +230,8 @@ static int wakesleep_vib = 0;
 static int vib_strength = 15;
 static int break_longtap_count = 0;
 
+static struct wake_lock l2w_wakelock;
+
 extern uint8_t touchscreen_is_on(void)
 {
 	if (scr_suspended == false) {
@@ -323,29 +326,35 @@ void logo2menu_menutrigger(void) {
         return;
 } 
 
-
 static int allow_longtap_count = 1;
 
 static void logo2wake_longtap_count(struct work_struct * logo2wake_longtap_count_work)
 {
-	int time_count = 0;
+	unsigned long time_count = 0;
 
 	if (!mutex_trylock(&longtap_count_lock))
 		return;
 
 	time_count = jiffies;
 	
+	if (scr_suspended)
+		wake_lock_timeout(&l2w_wakelock, 35);
+
 	for (;;) {
 
 		if (break_longtap_count) {
-		//	printk("[L2W] breaking longtap count work...\n");
+			if (wake_lock_active(&l2w_wakelock))
+				wake_unlock(&l2w_wakelock);
+			//printk("[L2W] breaking longtap count work...\n");
 			break_longtap_count = 0;
 			mutex_unlock(&longtap_count_lock);
 			return;
 		}
 
 		if (jiffies - time_count > L2W_TIMEOUT) {
-		//	printk("[L2W] counted to longtap time!\n");
+			//printk("[L2W] counted to longtap time!\n");
+			if (wake_lock_active(&l2w_wakelock))
+				wake_unlock(&l2w_wakelock);
 			break;
 		}
 		msleep(3);
@@ -2681,7 +2690,7 @@ static void synaptics_ts_finger_func(struct synaptics_ts_data *ts)
 					if (ts->layout[1] < finger_data[i][0])
 						finger_data[i][0] = ts->layout[1];
 					if(ts->width_factor && ts->height_factor){
-						printk(KERN_INFO
+						pr_debug(
 							"[TP] Screen:F[%02d]:Up, X=%d, Y=%d, W=%d, Z=%d, IM:%d, CIDIM:%d, Freq:%d, NS:%d\n",
 							i+1, (x_pos[i]*ts->width_factor)>>SHIFT_BITS,
 							(y_pos[i]*ts->height_factor)>>SHIFT_BITS,
@@ -2940,7 +2949,7 @@ static void synaptics_ts_finger_func(struct synaptics_ts_data *ts)
 
 						if ((finger_press_changed & BIT(i)) && ts->debug_log_level & BIT(3)) {
 							if(ts->width_factor && ts->height_factor){
-								printk(KERN_INFO
+								pr_debug(
 									"[TP] Screen:F[%02d]:Down, X=%d, Y=%d, W=%d, Z=%d, IM:%d, CIDIM:%d, Freq:%d, NS:%d\n",
 									i+1, (finger_data[i][0]*ts->width_factor)>>SHIFT_BITS,
 									(finger_data[i][1]*ts->height_factor)>>SHIFT_BITS,
@@ -4075,7 +4084,11 @@ static int synaptics_ts_probe(
 		kthread_run(syn_fw_update_init, (void *)ts, "SYN_FW_UPDATE");
 	}
 
+//l2w	
+	wake_lock_init(&l2w_wakelock, WAKE_LOCK_SUSPEND, "l2w_wakelock");
+
 	kthread_run(syn_probe_init, (void *)ts, "SYN_PROBE_INIT");
+	
 	return 0;
 
 err_detect_failed:
@@ -4100,6 +4113,8 @@ static int synaptics_ts_remove(struct i2c_client *client)
 	if(ts->sr_input_dev != NULL)
 		input_unregister_device(ts->sr_input_dev);
 	input_unregister_device(ts->input_dev);
+//l2w
+	wake_lock_destroy(&l2w_wakelock);
 
 	synaptics_touch_sysfs_remove();
 
