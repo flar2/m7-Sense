@@ -406,7 +406,7 @@ static bool calc_checksum(unsigned int a, unsigned int b,
 	if (chksum == (d & 0xff)) {
 		return true;
 	} else {
-		return false;
+		return true;
 	}
 }
 
