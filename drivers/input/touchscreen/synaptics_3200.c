@@ -260,7 +260,8 @@ static void sweep2wake_presspwr(struct work_struct * sweep2wake_presspwr_work) {
 
 	if (scr_suspended == true && pocket_detect == 1) {
 		if (pocket_detection_check()) {
-	        	mutex_unlock(&pwrkeyworklock);
+	        	if (wake_lock_active(&l2w_wakelock))
+				wake_unlock(&l2w_wakelock);
 			return;
 		}
 	}
@@ -338,7 +339,7 @@ static void logo2wake_longtap_count(struct work_struct * logo2wake_longtap_count
 	time_count = jiffies;
 	
 	if (scr_suspended)
-		wake_lock_timeout(&l2w_wakelock, 35);
+		wake_lock_timeout(&l2w_wakelock, HZ/3);
 
 	for (;;) {
 
@@ -2579,7 +2580,7 @@ static void dt2w_func(int x, int y, cputime64_t trigger_time)
                         wakesleep_vib = 1;
                         reset_dt2w();
 			//printk("dt2w ON\n");
-			wake_lock(&l2w_wakelock);
+			wake_lock_timeout(&l2w_wakelock, HZ/2);
                         sweep2wake_pwrtrigger();
                 } else {
 			prev_time = trigger_time;
