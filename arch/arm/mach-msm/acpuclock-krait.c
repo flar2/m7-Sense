@@ -72,11 +72,11 @@ static unsigned long acpu_max_freq = CONFIG_ACPU_MAX_FREQ;
 
 /** elementalx defs  **/
 
-int uv_bin = 0;
-uint32_t arg_max_oc0 = 1728000;
-uint32_t arg_max_oc1 = 1728000;
-uint32_t arg_max_oc2 = 1728000;
-uint32_t arg_max_oc3 = 1728000;
+static int uv_bin = 0;
+static uint32_t arg_max_oc0 = 1728000;
+static uint32_t arg_max_oc1 = 1728000;
+static uint32_t arg_max_oc2 = 1728000;
+static uint32_t arg_max_oc3 = 1728000;
 
 int pvs_number = 0;
 module_param(pvs_number, int, 0755); 
