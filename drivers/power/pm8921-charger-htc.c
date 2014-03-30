@@ -2558,7 +2558,7 @@ int adjust_chg_vin_min(struct pm8921_chg_chip *chip,
 #define ADJUST_VDDMAX_VALUE	100
 static int decrease_vddmax_configure_work(void)
 {
-	int vbat_mv;
+	int vbat_mv = 0;
 
 	
 	if (!the_chip) {
