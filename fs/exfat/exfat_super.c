@@ -1878,6 +1878,7 @@ enum {
 	Opt_err_cont,
 	Opt_err_panic,
 	Opt_err_ro,
+	Opt_htc_hack,
 	Opt_err,
 #if EXFAT_CONFIG_DISCARD
 	Opt_discard,
@@ -1898,6 +1899,7 @@ static const match_table_t exfat_tokens = {
 	{Opt_err_cont, "errors=continue"},
 	{Opt_err_panic, "errors=panic"},
 	{Opt_err_ro, "errors=remount-ro"},
+	{Opt_htc_hack, "utf8"},
 #if EXFAT_CONFIG_DISCARD
 	{Opt_discard, "discard"},
 #endif /* EXFAT_CONFIG_DISCARD */
@@ -2003,6 +2005,8 @@ static int parse_options(char *options, int silent, int *debug,
 			opts->discard = 1;
 			break;
 #endif /* EXFAT_CONFIG_DISCARD */
+		case Opt_htc_hack:
+			break;
 		default:
 			if (!silent) {
 				printk(KERN_ERR "[EXFAT] Unrecognized mount option %s or missing value\n", p);
