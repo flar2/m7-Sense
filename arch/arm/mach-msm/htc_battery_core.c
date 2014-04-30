@@ -28,6 +28,9 @@
 #include <linux/android_alarm.h>
 #include <mach/board_htc.h>
 
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_SWEEP2WAKE
+#include <linux/synaptics_i2c_rmi.h>
+#endif
 
 static ssize_t htc_battery_show_property(struct device *dev,
 					struct device_attribute *attr,
@@ -82,7 +85,7 @@ static struct alarm batt_charger_ctrl_alarm;
 static struct work_struct batt_charger_ctrl_work;
 struct workqueue_struct *batt_charger_ctrl_wq;
 static unsigned int charger_ctrl_stat;
-static unsigned int phone_call_stat;
+unsigned int phone_call_stat;
 
 static int test_power_monitor;
 
