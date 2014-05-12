@@ -266,9 +266,6 @@ static void report_gesture(int gest)
 	if ((pocket_detect && !pocket_detection_check()) || !pocket_detect) {
 		input_report_rel(gesture_dev, WAKE_GESTURE, gest);
 		input_sync(gesture_dev);
-
-	if (wake_lock_active(&l2w_wakelock))
-		wake_unlock(&l2w_wakelock);
 	}
 }
 
@@ -2609,11 +2606,12 @@ static void sweep2wake_vert_func(int x, int y)
 							if (exec_county) {
 								pr_debug("wake_gesture: sweep up\n");
 								wake_lock_timeout(&l2w_wakelock, HZ/2);
-								if (gestures_switch)
+								if (gestures_switch) {
 									report_gesture(3);
-								else
+								} else {
 									wakesleep_vib = 1;
 									sweep2wake_pwrtrigger();
+								}
 								exec_county = false;
 							}
 						}
