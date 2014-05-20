@@ -205,7 +205,7 @@ static void syn_handle_block_touch(struct synaptics_ts_data *ts, int enable)
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_SWEEP2WAKE
 
 #define S2W_START 3
-#define S2W_TIMEOUT 35
+#define S2W_TIMEOUT 30
 #define S2W_TIMEOUT2 60
 #define S2W_TIMEOUT3 50
 #define L2M_TIMEOUT 30
@@ -231,6 +231,7 @@ static unsigned long pwrtrigger_time[2] = {0, 0};
 static bool barriery[2] = {false, false}, exec_county = true;
 static bool barrierx[2] = {false, false}, exec_countx = true;
 static int firstx = 0, firsty = 0;
+static unsigned long firsty_time = 0, firstx_time = 0;
 static int wakesleep_vib = 0;
 static int vib_strength = 15;
 static int break_longtap_count = 0;
@@ -2579,31 +2580,34 @@ static void reset_sv2w(void)
 	barriery[0] = false;
 	barriery[1] = false;
 	firsty = 0;
+	firsty_time = 0;
 }
 
 static void sweep2wake_vert_func(int x, int y)
 {
 	int prevy = 0, nexty = 0;
 
-	if (firsty == 0)
+	if (firsty == 0) {
 		firsty = y;
+		firsty_time = jiffies;
+	}
 	if (firsty > 2279)
 		reset_sv2w();
 	//sweep up
 	if ((x > 100 && x < 1500) && (su2w_switch || gestures_switch)) {
 		if (firsty > 1500) {
 			prevy = firsty;
-			nexty = prevy - 150;
+			nexty = prevy - 170;
 			if (barriery[0] == true || (y < prevy && y > nexty)) {
 				prevy = nexty;
-				nexty -= 150;
+				nexty -= 200;
 				barriery[0] = true;
 				if (barriery[1] == true || (y < prevy && y > nexty)) {
 					prevy = nexty;
 					barriery[1] = true;
 					if (y < prevy) {
-						if (y < (nexty - 150)) {
-							if (exec_county) {
+						if (y < (nexty - 170)) {
+							if (exec_county && (jiffies - firsty_time < S2W_TIMEOUT)) {
 								pr_debug("wake_gesture: sweep up\n");
 								wake_lock_timeout(&l2w_wakelock, HZ/2);
 								if (gestures_switch) {
@@ -2621,17 +2625,17 @@ static void sweep2wake_vert_func(int x, int y)
 		//sweep down
 		} else if ((firsty <= 1500) && gestures_switch) {
 			prevy = firsty;
-			nexty = prevy + 150;
+			nexty = prevy + 170;
 			if (barriery[0] == true || (y > prevy && y < nexty)) {
 				prevy = nexty;
-				nexty += 150;
+				nexty += 200;
 				barriery[0] = true;
 				if (barriery[1] == true || (y > prevy && y < nexty)) {
 					prevy = nexty;
 					barriery[1] = true;
 					if (y > prevy) {
-						if (y > (nexty + 150)) {
-							if (exec_county) {
+						if (y > (nexty + 170)) {
+							if (exec_county && (jiffies - firsty_time < S2W_TIMEOUT)) {
 								pr_debug("wake_gesture: sweep down\n");
 								wake_lock_timeout(&l2w_wakelock, HZ/2);
 								report_gesture(4);
@@ -2651,31 +2655,34 @@ static void reset_sh2w(void)
 	barrierx[0] = false;
 	barrierx[1] = false;
 	firstx = 0;
+	firstx_time = 0;
 }
 
 static void sweep2wake_horiz_func(int x, int y)
 {
         int prevx = 0, nextx = 0;
 
-	if (firstx == 0)
+	if (firstx == 0) {
 		firstx = x;
+		firstx_time = jiffies;
+	}
 	if (firstx > 1619)
 		reset_sh2w();
 
 	//sweep right
 	if (firstx < 810) {
 		prevx = firstx;
-		nextx = prevx + 170;
+		nextx = prevx + 180;
 		if (barrierx[0] == true || (x > prevx && x < nextx)) {
 			prevx = nextx;
-			nextx += 170;
+			nextx += 200;
 			barrierx[0] = true;
 			if (barrierx[1] == true || (x > prevx && x < nextx)) {
 				prevx = nextx;
 				barrierx[1] = true;
 				if (x > prevx) {
-					if (x > (nextx + 170)) {
-						if (exec_countx) {
+					if (x > (nextx + 180)) {
+						if (exec_countx && (jiffies - firstx_time < S2W_TIMEOUT)) {
 							pr_debug("wake_gesture: sweep right\n");
 							wake_lock_timeout(&l2w_wakelock, HZ/2);
 							report_gesture(1);
@@ -2688,17 +2695,17 @@ static void sweep2wake_horiz_func(int x, int y)
 	//sweep left
 	} else if (firstx >= 810 && y < 2790) {
 		prevx = firstx;
-		nextx = prevx - 170;
+		nextx = prevx - 180;
 		if ((barrierx[0] == true) ||(x < prevx && x > nextx && y < 2790)) {
 			prevx = nextx;
-			nextx -= 170;
+			nextx -= 200;
 			barrierx[0] = true;
 			if ((barrierx[1] == true) || (x < prevx && x > nextx  && y < 2790)) {
 				prevx = nextx;
 				barrierx[1] = true;
 				if (x < prevx  && y < 2790) {
-					if (x < (nextx - 170)) {
-						if (exec_countx) {
+					if (x < (nextx - 180)) {
+						if (exec_countx && (jiffies - firstx_time < S2W_TIMEOUT)) {
 							pr_debug("wake_gesture: sweep left\n");
 							wake_lock_timeout(&l2w_wakelock, HZ/2);
 							report_gesture(2);
@@ -4214,7 +4221,6 @@ static int syn_probe_init(void *arg)
 #endif
 
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_SWEEP2WAKE
-	printk("allocate gesture dev\n");
 	gesture_dev = input_allocate_device();
 
 	if (!gesture_dev) {
