@@ -4228,9 +4228,7 @@ static int syn_probe_init(void *arg)
 	}
 
 	gesture_dev->name = "wake_gesture";
-
-	set_bit(EV_KEY, gesture_dev->evbit);
-	set_bit(KEY_HOME, gesture_dev->keybit);
+	gesture_dev->phys = "wake_gesture/input0";
 	input_set_capability(gesture_dev, EV_REL, WAKE_GESTURE);
 
 	ret = input_register_device(gesture_dev);
