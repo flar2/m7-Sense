@@ -148,6 +148,7 @@ static struct dbs_tuners {
 	int          powersave_bias;
 	unsigned int io_is_busy;
 	unsigned int two_phase_freq;
+	unsigned int shortcut;
 	unsigned int origin_sampling_rate;
 	unsigned int ui_sampling_rate;
 	unsigned int input_event_timeout;
@@ -166,6 +167,7 @@ static struct dbs_tuners {
 	.sync_freq = 0,
 	.optimal_freq = 0,
 	.two_phase_freq = 0,
+	.shortcut = 0,
 	.ui_sampling_rate = UI_DYNAMIC_SAMPLING_RATE,
 	.input_event_timeout = INPUT_EVENT_TIMEOUT,
 	.enable_boost_cpu = 1,
@@ -359,6 +361,7 @@ static ssize_t show_##file_name						\
 }
 show_one(sampling_rate, sampling_rate);
 show_one(io_is_busy, io_is_busy);
+show_one(shortcut, shortcut);
 show_one(up_threshold, up_threshold);
 show_one(up_threshold_multi_core, up_threshold_multi_core);
 show_one(down_differential, down_differential);
@@ -564,6 +567,23 @@ static ssize_t store_io_is_busy(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 	dbs_tuners_ins.io_is_busy = !!input;
+	return count;
+}
+
+static ssize_t store_shortcut(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (dbs_tuners_ins.shortcut != input) {
+		dbs_tuners_ins.shortcut = input;
+	}
+
 	return count;
 }
 
@@ -845,6 +865,7 @@ static ssize_t store_gboost_threshold(struct kobject *a, struct attribute *b,
 
 define_one_global_rw(sampling_rate);
 define_one_global_rw(io_is_busy);
+define_one_global_rw(shortcut);
 define_one_global_rw(up_threshold);
 define_one_global_rw(down_differential);
 define_one_global_rw(sampling_down_factor);
@@ -871,6 +892,7 @@ static struct attribute *dbs_attributes[] = {
 	&ignore_nice_load.attr,
 	&powersave_bias.attr,
 	&io_is_busy.attr,
+	&shortcut.attr,
 	&up_threshold_multi_core.attr,
 	&optimal_freq.attr,
 	&up_threshold_any_cpu_load.attr,
@@ -1153,6 +1175,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	static unsigned int counter = 0;
 	unsigned int nr_cpus;
 
+	unsigned int up_threshold = dbs_tuners_ins.up_threshold;;
 
 	this_dbs_info->freq_lo = 0;
 	policy = this_dbs_info->cur_policy;
@@ -1201,10 +1224,9 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 	cpufreq_notify_utilization(policy, load_at_max_freq);
 
-	
 //gboost
 //printk("gcount=%d\n", g_count);
-if (graphics_boost == 0 || g_count > 30) {
+if (graphics_boost == 0 || g_count > 30 || dbs_tuners_ins.shortcut == 1) {
 
 	if (max_load_freq > dbs_tuners_ins.up_threshold * policy->cur) {
 		
@@ -1235,9 +1257,17 @@ if (graphics_boost == 0 || g_count > 30) {
 	}
 
 } else {
-	if (max_load_freq > up_threshold_level[1] * policy->cur) {
-		unsigned int avg_load = (prev_load + cur_load) >> 1;
-		int index = get_cpu_freq_index(policy->cur);
+
+	if (!dbs_tuners_ins.shortcut)
+		up_threshold = up_threshold_level[1];
+
+	if (max_load_freq > up_threshold * policy->cur) {
+		unsigned int avg_load;
+		int index;
+
+		
+		avg_load = (prev_load + cur_load) >> 1;
+		index = get_cpu_freq_index(policy->cur);
 
 		
 		if (FREQ_NEED_BURST(policy->cur) && cur_load > up_threshold_level[0]) {
