@@ -491,6 +491,10 @@ int htc_charger_event_notify(enum htc_charger_event event)
 		latest_pj_src = PJ_OUT;
 		htc_batt_schedule_batt_info_update();
 		break;
+	case HTC_CHARGER_EVENT_SRC_CABLE_INSERT_NOTIFY:
+		latest_chg_src = CHARGER_NOTIFY;
+		htc_batt_schedule_batt_info_update();
+		break;
 	default:
 		pr_info("[BATT] unsupported charger event(%d)\n", event);
 		break;
@@ -692,6 +696,10 @@ static void cable_status_notifier_func(enum usb_connect_type online)
 	case CONNECT_TYPE_MHL_AC:
 		BATT_LOG("mhl_ac");
 		htc_charger_event_notify(HTC_CHARGER_EVENT_SRC_MHL_AC);
+		break;
+	case CONNECT_TYPE_NOTIFY:
+		BATT_LOG("cable insert notify");
+		htc_charger_event_notify(HTC_CHARGER_EVENT_SRC_CABLE_INSERT_NOTIFY);
 		break;
 	default:
 		BATT_LOG("unsupported connect_type=%d", online);
@@ -965,6 +973,51 @@ static void htc_batt_set_full_level_dis_batt_chg(int percent)
 	return;
 }
 
+static void htc_batt_trigger_store_battery_data(int triggle_flag)
+{
+	if (triggle_flag == 1)
+	{
+		if (htc_batt_info.igauge &&
+				htc_batt_info.igauge->store_battery_data) {
+			htc_batt_info.igauge->store_battery_data();
+		}
+	}
+	return;
+}
+
+static void htc_batt_store_battery_ui_soc(int soc_ui)
+{
+	
+	if (soc_ui <= 0 || soc_ui > 100)
+		return;
+
+	if (htc_batt_info.igauge &&
+			htc_batt_info.igauge->store_battery_ui_soc) {
+		htc_batt_info.igauge->store_battery_ui_soc(soc_ui);
+	}
+	return;
+}
+
+static void htc_batt_get_battery_ui_soc(int *soc_ui)
+{
+	int temp_soc;
+	int orig_soc = *soc_ui;
+
+	if (htc_batt_info.igauge &&
+			htc_batt_info.igauge->get_battery_ui_soc) {
+		temp_soc = htc_batt_info.igauge->get_battery_ui_soc();
+
+		
+		if (temp_soc > 0 && temp_soc <= 100)
+			*soc_ui = temp_soc;
+	}
+
+	BATT_LOG("%s: original soc: %d, changed soc: %d.", __func__,
+		orig_soc, *soc_ui);
+
+	return;
+}
+
 static int htc_battery_get_rt_attr(enum htc_batt_rt_attr attr, int *val)
 {
 	int ret = 0;
@@ -988,6 +1041,12 @@ static int htc_battery_get_rt_attr(enum htc_batt_rt_attr attr, int *val)
 	case HTC_PJ_RT_VOLTAGE:
 		if (htc_batt_info.igauge->get_pj_voltage)
 			htc_batt_info.igauge->get_pj_voltage(val);
+		break;
+	case HTC_BATT_RT_VOLTAGE_UV:
+		if (htc_batt_info.igauge->get_battery_voltage) {
+			ret = htc_batt_info.igauge->get_battery_voltage(val);
+			*val *= 1000;
+		}
 		break;
 	default:
 		ret = -EINVAL;
@@ -1419,12 +1478,18 @@ inline static int is_voltage_critical_low(int voltage_mv)
 static void batt_check_overload(void)
 {
 	static unsigned int overload_count;
+	int is_full = 0;
 
-	pr_debug("[BATT] Chk overload by CS=%d V=%d I=%d count=%d overload=%d\n",
+	if(htc_batt_info.igauge && htc_batt_info.igauge->is_battery_full)
+		htc_batt_info.igauge->is_battery_full(&is_full);
+
+	pr_debug("[BATT] Chk overload by CS=%d V=%d I=%d count=%d overload=%d"
+			"is_full=%d\n",
 			htc_batt_info.rep.charging_source, htc_batt_info.rep.batt_vol,
-			htc_batt_info.rep.batt_current, overload_count, htc_batt_info.rep.overload);
+			htc_batt_info.rep.batt_current, overload_count, htc_batt_info.rep.overload,
+			is_full);
 	if ((htc_batt_info.rep.charging_source > 0) &&
-			(htc_batt_info.rep.batt_vol < htc_batt_info.overload_vol_thr_mv) &&
+			(!is_full) &&
 			((htc_batt_info.rep.batt_current / 1000) >
 				htc_batt_info.overload_curr_thr_ma)) {
 		if (overload_count++ < 3) {
@@ -1437,61 +1502,87 @@ static void batt_check_overload(void)
 	}
 }
 
-#define CHG_ONE_PERCENT_LIMIT_PERIOD_MS		(1000 * 60)
+static void adjust_store_level(int *store_level, int drop_raw, int drop_ui, int prev) {
+	int store = *store_level;
+	
+	store += drop_raw - drop_ui;
+	if (store >= 0)
+		htc_batt_info.rep.level = prev - drop_ui;
+	else {
+		htc_batt_info.rep.level = prev;
+		store += drop_ui;
+	}
+	*store_level = store;
+}
+
+#define CHG_ONE_PERCENT_LIMIT_PERIOD_MS	(1000 * 60)
 #define DISCHG_UPDATE_PERIOD_MS			(1000 * 60)
 #define ONE_PERCENT_LIMIT_PERIOD_MS		(1000 * (60 + 10))
 #define FIVE_PERCENT_LIMIT_PERIOD_MS	(1000 * (300 + 10))
+#define ONE_MINUTES_MS					(1000 * (60 + 10))
+#define FOURTY_MINUTES_MS				(1000 * (2400 + 10))
+#define SIXTY_MINUTES_MS				(1000 * (3600 + 10))
 static void batt_level_adjust(unsigned long time_since_last_update_ms)
 {
 	static int first = 1;
 	static int critical_low_enter = 0;
-	int prev_level, drop_level;
+	static int store_level = 0;
+	static int pre_ten_digit, ten_digit;
+	static bool stored_level_flag = false;
+	static bool allow_drop_one_percent_flag = false;
+	int prev_raw_level, drop_raw_level;
+	int prev_level;
 	int is_full = 0;
-	int prev_current;
-	unsigned long level_since_last_update_ms;
-	unsigned long cur_jiffies = 0;
-	static unsigned long pre_jiffies;
+	int dropping_level;
+	static unsigned long time_accumulated_level_change = 0;
 	const struct battery_info_reply *prev_batt_info_rep =
 						htc_battery_core_get_batt_info_rep();
 
 	if (!first) {
 		prev_level = prev_batt_info_rep->level;
-		prev_current = prev_batt_info_rep->batt_current;
+		prev_raw_level = prev_batt_info_rep->level_raw;
 	} else {
 		prev_level = htc_batt_info.rep.level;
-		prev_current = htc_batt_info.rep.batt_current;
-		pre_jiffies = 0;
-		level_since_last_update_ms = DISCHG_UPDATE_PERIOD_MS;
+		prev_raw_level = htc_batt_info.rep.level_raw;
+		pre_ten_digit = htc_batt_info.rep.level / 10;
 	}
-	drop_level = prev_level - htc_batt_info.rep.level;
+	drop_raw_level = prev_raw_level - htc_batt_info.rep.level_raw;
+	time_accumulated_level_change += time_since_last_update_ms;
 
 	if ((prev_batt_info_rep->charging_source > 0) &&
 		htc_batt_info.rep.charging_source == 0 && prev_level == 100) {
 		BATT_LOG("%s: Cable plug out when level 100, reset timer.",__func__);
-		pre_jiffies = jiffies;
+		time_accumulated_level_change = 0;
 		htc_batt_info.rep.level = prev_level;
 		return;
 	}
 
+	if ((htc_batt_info.rep.charging_source == 0)
+			&& (stored_level_flag == false)) {
+		store_level = prev_level - prev_raw_level;
+		BATT_LOG("%s: Cable plug out, to store difference between"
+			" UI & SOC. store_level:%d, prev_level:%d, prev_raw_level:%d"
+			,__func__, store_level, prev_level, prev_raw_level);
+		stored_level_flag = true;
+	} else if (htc_batt_info.rep.charging_source > 0)
+		stored_level_flag = false;
+
 	if (!prev_batt_info_rep->charging_enabled &&
 			!((prev_batt_info_rep->charging_source == 0) &&
 				htc_batt_info.rep.charging_source > 0)) {
-		if (drop_level > 0) {
-			cur_jiffies = jiffies;
-			level_since_last_update_ms =
-			(cur_jiffies - pre_jiffies) * MSEC_PER_SEC / HZ;
+		if (time_accumulated_level_change < DISCHG_UPDATE_PERIOD_MS) {
+			
 			BATT_LOG("%s: total_time since last batt level update = %lu ms.",
-					__func__, level_since_last_update_ms);
-			if (time_since_last_update_ms < DISCHG_UPDATE_PERIOD_MS &&
-				level_since_last_update_ms < DISCHG_UPDATE_PERIOD_MS) {
-				htc_batt_info.rep.level = prev_level;
-				return;
-			}
+			__func__, time_accumulated_level_change);
+			htc_batt_info.rep.level = prev_level;
+			store_level += drop_raw_level;
+			return;
 		}
 
 		if (is_voltage_critical_low(htc_batt_info.rep.batt_vol)) {
 			critical_low_enter = 1;
 			
+
 			pr_info("[BATT] battery level force decreses 6%% from %d%%"
 					" (soc=%d)on critical low (%d mV)\n", prev_level,
 						htc_batt_info.rep.level,
@@ -1499,74 +1590,126 @@ static void batt_level_adjust(unsigned long time_since_last_update_ms)
 			htc_batt_info.rep.level =
 					(prev_level - 6 > 0) ? (prev_level - 6) :	0;
 		} else {
+			
+			
+			if ((htc_batt_info.rep.level_raw < 20) ||
+					(prev_level - prev_raw_level > 10))
+				allow_drop_one_percent_flag = true;
+
+			
+			htc_batt_info.rep.level = prev_level;
+
 			if (time_since_last_update_ms <= ONE_PERCENT_LIMIT_PERIOD_MS) {
-				if (2 < drop_level) {
-					pr_info("[BATT] soc drop = %d%% > 2%% in %lu ms.\n",
-								drop_level,time_since_last_update_ms);
-					htc_batt_info.rep.level = prev_level - 2;
-				} else if (drop_level < 0) {
-					if (htc_batt_info.rep.pj_src > 0
+				if (1 <= drop_raw_level) {
+					adjust_store_level(&store_level, drop_raw_level, 1, prev_level);
+					pr_info("[BATT] remap: normal soc drop = %d%% in %lu ms."
+							" UI only allow -1%%, store_level:%d, ui:%d%%\n",
+							drop_raw_level, time_since_last_update_ms,
+							store_level, htc_batt_info.rep.level);
+				}
+			} else if ((chg_limit_reason & HTC_BATT_CHG_LIMIT_BIT_TALK) &&
+				(time_since_last_update_ms <= FIVE_PERCENT_LIMIT_PERIOD_MS)) {
+				if (5 < drop_raw_level) {
+					adjust_store_level(&store_level, drop_raw_level, 5, prev_level);
+				} else if (1 <= drop_raw_level && drop_raw_level <= 5) {
+					adjust_store_level(&store_level, drop_raw_level, 1, prev_level);
+				}
+				pr_info("[BATT] remap: phone soc drop = %d%% in %lu ms."
+						" UI only allow -1%% or -5%%, store_level:%d, ui:%d%%\n",
+						drop_raw_level, time_since_last_update_ms,
+						store_level, htc_batt_info.rep.level);
+			} else {
+				if (1 <= drop_raw_level) {
+					if ((ONE_MINUTES_MS < time_since_last_update_ms) &&
+							(time_since_last_update_ms <= FOURTY_MINUTES_MS)) {
+						adjust_store_level(&store_level, drop_raw_level, 1, prev_level);
+					} else if ((FOURTY_MINUTES_MS < time_since_last_update_ms) &&
+							(time_since_last_update_ms <= SIXTY_MINUTES_MS)) {
+						if (2 <= drop_raw_level) {
+							adjust_store_level(&store_level, drop_raw_level, 2, prev_level);
+						} else { 
+							adjust_store_level(&store_level, drop_raw_level, 1, prev_level);
+						}
+					} else if (SIXTY_MINUTES_MS < time_since_last_update_ms) {
+						if (3 <= drop_raw_level) {
+							adjust_store_level(&store_level, drop_raw_level, 3, prev_level);
+						} else if (drop_raw_level == 2) {
+							adjust_store_level(&store_level, drop_raw_level, 2, prev_level);
+						} else { 
+							adjust_store_level(&store_level, drop_raw_level, 1, prev_level);
+						}
+					}
+					pr_info("[BATT] remap: suspend soc drop: %d%% in %lu ms."
+							" UI only allow -1%% to -3%%, store_level:%d, ui:%d%%\n",
+							drop_raw_level, time_since_last_update_ms,
+							store_level, htc_batt_info.rep.level);
+				}
+			}
+
+			if ((allow_drop_one_percent_flag == false)
+					&& (drop_raw_level == 0)) {
+				htc_batt_info.rep.level = prev_level;
+				pr_info("[BATT] remap: no soc drop and no additional 1%%,"
+						" ui:%d%%\n", htc_batt_info.rep.level);
+			} else if ((allow_drop_one_percent_flag == true)
+					&& (drop_raw_level == 0)
+					&& (store_level > 0)) {
+				store_level--;
+				htc_batt_info.rep.level = prev_level - 1;
+				allow_drop_one_percent_flag = false;
+				pr_info("[BATT] remap: drop additional 1%%. store_level:%d,"
+						" ui:%d%%\n", store_level
+						, htc_batt_info.rep.level);
+			} else if (drop_raw_level < 0) {
+				if (htc_batt_info.rep.pj_src > 0
 							&& htc_batt_info.rep.pj_chg_status == PJ_CHG_STATUS_DCHG) {
 						
 						pr_info("[BATT] level increase due to PJ charge battery"
 								" in %lu ms.\n",time_since_last_update_ms);
-					} else {
-						if (critical_low_enter) {
-							pr_warn("[BATT] level increase because of"
-									" exit critical_low!\n");
-						}
-						htc_batt_info.rep.level = prev_level;
-					}
+						htc_batt_info.rep.level = prev_level - drop_raw_level;
 				} else {
-					
-				}
-			} else if ((chg_limit_reason & HTC_BATT_CHG_LIMIT_BIT_TALK) &&
-				(time_since_last_update_ms <= FIVE_PERCENT_LIMIT_PERIOD_MS)) {
-				if (5 < drop_level) {
-					pr_info("[BATT] soc drop = %d%% > 5%% in %lu ms.\n",
-								drop_level,time_since_last_update_ms);
-					htc_batt_info.rep.level = prev_level - 5;
-				} else if (drop_level < 0) {
-					if (htc_batt_info.rep.pj_src > 0
-							&& htc_batt_info.rep.pj_chg_status == PJ_CHG_STATUS_DCHG) {
-						
-						pr_info("[BATT] level increase due to PJ charge battery"
-								" in phone call.");
-					} else {
-						if (critical_low_enter) {
-							pr_warn("[BATT] level increase because of"
-									" exit critical_low!\n");
-						}
-						htc_batt_info.rep.level = prev_level;
+					if (critical_low_enter) {
+						pr_warn("[BATT] remap: level increase because of"
+								" exit critical_low!\n");
 					}
-				} else {
-					
-				}
-			} else {
-				if (3 < drop_level) {
-					pr_info("[BATT] soc drop = %d%% > 3%% in %lu ms.\n",
-								drop_level,time_since_last_update_ms);
-					htc_batt_info.rep.level = prev_level - 3;
-				} else if (drop_level < 0) {
-					if (htc_batt_info.rep.pj_src > 0
-							&& htc_batt_info.rep.pj_chg_status == PJ_CHG_STATUS_DCHG) {
-						
-						pr_info("[BATT] level increase due to PJ charge battery.");
-					} else {
-						if (critical_low_enter) {
-							pr_warn("[BATT] level increase because of"
-									" exit critical_low!\n");
-						}
-						htc_batt_info.rep.level = prev_level;
-					}
-				} else {
-					
+					store_level += drop_raw_level;
+					htc_batt_info.rep.level = prev_level;
+					pr_info("[BATT] remap: soc increased. store_level:%d,"
+							" ui:%d%%\n", store_level, htc_batt_info.rep.level);
 				}
 			}
+
+			
+			ten_digit = htc_batt_info.rep.level / 10;
+			if (htc_batt_info.rep.level != 100) {
+				
+				if ((pre_ten_digit != 10) && (pre_ten_digit > ten_digit)) {
+					allow_drop_one_percent_flag = true;
+					pr_info("[BATT] remap: allow to drop additional 1%% at next"
+							" level:%d%%.\n", htc_batt_info.rep.level - 1);
+				}
+			}
+			pre_ten_digit = ten_digit;
 
 			if (critical_low_enter) {
 				critical_low_enter = 0;
 				pr_warn("[BATT] exit critical_low without charge!\n");
+			}
+
+			if (htc_batt_info.rep.batt_temp < 0 &&
+				drop_raw_level == 0 &&
+				store_level >= 2) {
+					dropping_level = prev_level - htc_batt_info.rep.level;
+					if((dropping_level == 1) || (dropping_level == 0)) {
+						store_level = store_level - (2 - dropping_level);
+						htc_batt_info.rep.level = htc_batt_info.rep.level -
+							(2 - dropping_level);
+					}
+					pr_info("[BATT] remap: enter low temperature section, "
+							"store_level:%d%%, dropping_level:%d%%, "
+							"prev_level:%d%%, level:%d%%.\n"
+							, store_level, prev_level, dropping_level
+							, htc_batt_info.rep.level);
 			}
 		}
 		if (htc_batt_info.rep.level == 0) {
@@ -1589,28 +1732,59 @@ static void batt_level_adjust(unsigned long time_since_last_update_ms)
 			htc_batt_info.igauge->is_battery_full(&is_full);
 			if (is_full != 0) {
 				if (htc_batt_info.smooth_chg_full_delay_min
-					&& prev_level < 100) {
-					htc_batt_info.rep.level = prev_level + 1;
+						&& prev_level < 100) {
+					
+					if (time_accumulated_level_change <
+							(htc_batt_info.smooth_chg_full_delay_min
+							* CHG_ONE_PERCENT_LIMIT_PERIOD_MS)) {
+						htc_batt_info.rep.level = prev_level;
+					} else {
+						htc_batt_info.rep.level = prev_level + 1;
+					}
 				} else {
 					htc_batt_info.rep.level = 100; 
 				}
 			} else {
-				if (99 < htc_batt_info.rep.level)
+				if (prev_level > htc_batt_info.rep.level) {
+					
+					if (!htc_batt_info.rep.overload) {
+						pr_info("[BATT] pre_level=%d, new_level=%d, "
+							"level drop but overloading doesn't happen!\n",
+							prev_level, htc_batt_info.rep.level);
+						htc_batt_info.rep.level = prev_level;
+					}
+				}
+				else if (99 < htc_batt_info.rep.level && prev_level < 100)
 					htc_batt_info.rep.level = 99; 
 				else if (prev_level < htc_batt_info.rep.level) {
-						if(time_since_last_update_ms >
-								CHG_ONE_PERCENT_LIMIT_PERIOD_MS)
-							htc_batt_info.rep.level = prev_level + 1;
-						else
-							htc_batt_info.rep.level = prev_level;
+					if(time_since_last_update_ms >
+							CHG_ONE_PERCENT_LIMIT_PERIOD_MS)
+						htc_batt_info.rep.level = prev_level + 1;
+					else
+						htc_batt_info.rep.level = prev_level;
+
+					if (htc_batt_info.rep.level > 100)
+						htc_batt_info.rep.level = 100;
+				}
+				else {
+					pr_info("[BATT] pre_level=%d, new_level=%d, "
+						"level would use raw level!\n",
+						prev_level, htc_batt_info.rep.level);
 				}
 			}
 		}
 		critical_low_enter = 0;
+		allow_drop_one_percent_flag = false;
 	}
 
+	htc_batt_store_battery_ui_soc(htc_batt_info.rep.level);
+
+	
+	if (first)
+		htc_batt_get_battery_ui_soc(&htc_batt_info.rep.level);
+
 	if (htc_batt_info.rep.level != prev_level)
-		pre_jiffies = cur_jiffies;
+		time_accumulated_level_change = 0;
 
 	first = 0;
 }
@@ -1784,7 +1958,8 @@ static void power_jacket_level_update(int first)
 		__func__, htc_batt_info.rep.pj_vol, htc_batt_info.rep.pj_level,
 		htc_batt_info.rep.pj_level_pre, is_chg);
 
-	if (htc_batt_info.rep.pj_full == PJ_FULL) {
+	if (htc_batt_info.rep.pj_full) {
+		
 		htc_batt_info.rep.pj_level = 100;
 	} else if (htc_batt_info.rep.pj_vol < 2400) {
 		
@@ -1808,9 +1983,6 @@ static void power_jacket_level_update(int first)
 			
 			if (htc_batt_info.rep.pj_level - htc_batt_info.rep.pj_level_pre > 19)
 				htc_batt_info.rep.pj_level = htc_batt_info.rep.pj_level_pre + 19;
-			
-			if (htc_batt_info.rep.pj_full == PJ_FULL)
-				htc_batt_info.rep.pj_level = 100;
 		}
 	}
 
@@ -1825,7 +1997,9 @@ void power_jacket_info_update(void)
 {
 	int pj_chg_status = htc_batt_info.rep.pj_chg_status;
 	int err = 0, prev_pj_src = 0;
+	int pj_full_status;
 	static int first = 1;
+	static int chg_src_pre;
 	static ktime_t start_ktime;
 	static ktime_t end_ktime;
 
@@ -1833,14 +2007,16 @@ void power_jacket_info_update(void)
 	prev_pj_src = htc_batt_info.rep.pj_src;
 	htc_batt_info.rep.pj_src = latest_pj_src;
 
-	htc_batt_info.igauge->is_pj_full(&htc_batt_info.rep.pj_full);
+	htc_batt_info.igauge->is_pj_full(&pj_full_status);
 
 	if (htc_batt_info.rep.pj_src) {
+
 		end_ktime = ktime_get_real();
 
 		if (!prev_pj_src || first) {
 			
 			power_jacket_level_update(1);
+			htc_batt_info.rep.pj_level_pre = htc_batt_info.rep.pj_level;
 			start_ktime = end_ktime;
 		}
 
@@ -1866,9 +2042,19 @@ void power_jacket_info_update(void)
 			if ((chg_dis_reason & chg_dis_pj_mask) || charger_dis_temp_fault) {
 				pj_chg_status = PJ_CHG_STATUS_OFF;
 			} else {
-				if (htc_batt_info.rep.pj_full == PJ_FULL) {
-					pj_chg_status = PJ_CHG_STATUS_OFF;
+				if (pj_full_status == PJ_FULL) {
+					htc_batt_info.rep.pj_full = 1;
 					htc_batt_info.rep.pj_level = 100;
+				} else {
+					if (!first && htc_batt_info.rep.level_raw == 100)  {
+						if ((chg_src_pre == 0 && htc_batt_info.rep.charging_source > 0) || !prev_pj_src) {
+							if (htc_batt_info.rep.pj_level > 95)
+								htc_batt_info.rep.pj_full = 1;
+						}
+					}
+				}
+				if (pj_full_status == PJ_FULL) {
+					pj_chg_status = PJ_CHG_STATUS_OFF;
 				} else
 					pj_chg_status = PJ_CHG_STATUS_CHG;
 			}
@@ -1877,14 +2063,16 @@ void power_jacket_info_update(void)
 				pj_chg_status = PJ_CHG_STATUS_OFF;
 			else
 				pj_chg_status = PJ_CHG_STATUS_DCHG;
+
+			htc_batt_info.rep.pj_full = 0;
 		}
 
-		pr_info("[BATT]%s: pj_vol:%d, pj_full_detect:%d, pj_level:%d\n",
-			__func__, htc_batt_info.rep.pj_vol,
-			htc_batt_info.rep.pj_full, htc_batt_info.rep.pj_level);
+		pr_info("[BATT]%s: pj_vol:%d, pj_full:%d, pj_status:%d, pj_level:%d\n",
+			__func__, htc_batt_info.rep.pj_vol, htc_batt_info.rep.pj_full, pj_full_status, htc_batt_info.rep.pj_level);
 	} else {
 		htc_batt_info.rep.pj_vol = 0;
 		htc_batt_info.rep.pj_level = 0;
+		htc_batt_info.rep.pj_full = 0;
 		pj_chg_status = PJ_CHG_STATUS_OFF;
 		if (delayed_work_pending(&htc_batt_timer.calculate_pj_level_work)) {
 			wake_unlock(&htc_batt_timer.calculate_pj_level_lock);
@@ -1921,6 +2109,7 @@ void power_jacket_info_update(void)
 	}
 
 	first = 0;
+	chg_src_pre = htc_batt_info.rep.charging_source;
 }
 
 static void calculate_pj_level_worker(struct work_struct *work)
@@ -2587,6 +2776,8 @@ static int htc_battery_probe(struct platform_device *pdev)
 											htc_batt_context_event_handler;
 	htc_battery_core_ptr->func_notify_pnpmgr_charging_enabled =
 										pdata->notify_pnpmgr_charging_enabled;
+	htc_battery_core_ptr->func_trigger_store_battery_data =
+											htc_batt_trigger_store_battery_data;
 
 	htc_battery_core_register(&pdev->dev, htc_battery_core_ptr);
 

@@ -926,6 +926,9 @@ static struct htc_battery_platform_data htc_battery_pdev_data = {
 	.igauge.get_battery_id = pm8921_get_batt_id,
 	.igauge.get_battery_soc = pm8921_bms_get_batt_soc,
 	.igauge.get_battery_cc = pm8921_bms_get_batt_cc,
+	.igauge.store_battery_data = pm8921_bms_store_battery_data_emmc,
+	.igauge.store_battery_ui_soc = pm8921_bms_store_battery_ui_soc,
+	.igauge.get_battery_ui_soc = pm8921_bms_get_battery_ui_soc,
 	.igauge.is_battery_temp_fault = pm8921_is_batt_temperature_fault,
 	.igauge.is_battery_full = pm8921_is_batt_full,
 	.igauge.get_attr_text = pm8921_gauge_get_attr_text,
@@ -4597,6 +4600,59 @@ static struct platform_device m7_device_rpm_regulator __devinitdata = {
 	},
 };
 
+
+#ifdef CONFIG_BUILD_EDIAG
+static struct android_pmem_platform_data android_pmem_ediag_pdata = {
+	.name = "pmem_ediag",
+	.start = MSM_HTC_PMEM_EDIAG_BASE,
+	.size = MSM_HTC_PMEM_EDIAG_SIZE,
+	.no_allocator = 0,
+	.cached = 0,
+};
+
+static struct android_pmem_platform_data android_pmem_ediag1_pdata = {
+	.name = "pmem_ediag1",
+	.start = MSM_HTC_PMEM_EDIAG1_BASE,
+	.size = MSM_HTC_PMEM_EDIAG1_SIZE,
+	.no_allocator = 0,
+	.cached = 0,
+};
+
+static struct android_pmem_platform_data android_pmem_ediag2_pdata = {
+	.name = "pmem_ediag2",
+	.start = MSM_HTC_PMEM_EDIAG2_BASE,
+	.size = MSM_HTC_PMEM_EDIAG2_SIZE,
+	.no_allocator = 0,
+	.cached = 0,
+};
+
+static struct android_pmem_platform_data android_pmem_ediag3_pdata = {
+	.name = "pmem_ediag3",
+	.start = MSM_HTC_PMEM_EDIAG3_BASE,
+	.size = MSM_HTC_PMEM_EDIAG3_SIZE,
+	.no_allocator = 0,
+	.cached = 0,
+};
+
+
+static struct platform_device android_pmem_ediag_device = {
+	.name = "ediag_pmem",	.id = 1,
+	.dev = { .platform_data = &android_pmem_ediag_pdata },};
+
+static struct platform_device android_pmem_ediag1_device = {
+	.name = "ediag_pmem",	.id = 2,
+	.dev = { .platform_data = &android_pmem_ediag1_pdata },};
+
+static struct platform_device android_pmem_ediag2_device = {
+	.name = "ediag_pmem",	.id = 3,
+	.dev = { .platform_data = &android_pmem_ediag2_pdata },};
+
+static struct platform_device android_pmem_ediag3_device = {
+	.name = "ediag_pmem",	.id = 4,
+	.dev = { .platform_data = &android_pmem_ediag3_pdata },};
+#endif
+
+
 #define MSM_RAM_CONSOLE_BASE   MSM_HTC_RAM_CONSOLE_PHYS
 #define MSM_RAM_CONSOLE_SIZE   MSM_HTC_RAM_CONSOLE_SIZE
 
@@ -4833,6 +4889,12 @@ static struct platform_device *common_devices[] __initdata = {
 #endif
 #ifdef CONFIG_QSEECOM
 	&qseecom_device,
+#endif
+#ifdef CONFIG_BUILD_EDIAG
+	&android_pmem_ediag_device,
+	&android_pmem_ediag1_device,
+	&android_pmem_ediag2_device,
+	&android_pmem_ediag3_device,
 #endif
 	&msm8064_device_watchdog,
 	&msm8064_device_saw_regulator_core0,

@@ -1547,6 +1547,7 @@ void mmc_remove_sd_card(struct work_struct *work)
 	}
 	mmc_bus_put(host);
 	wake_unlock(&mmc_removal_work_wake_lock);
+	wake_lock_timeout(&mmc_removal_work_wake_lock, HZ * 2);
 
 	printk(KERN_INFO "%s: %s exit\n", mmc_hostname(host),
 		__func__);

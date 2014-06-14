@@ -325,6 +325,7 @@ static void android_work(struct work_struct *data)
 		pr_info("%s: sent uevent %s\n", __func__, uevent_envp[0]);
 		if (dev->pdata->vzw_unmount_cdrom) {
 			cancel_delayed_work(&cdev->cdusbcmd_vzw_unmount_work);
+			cdev->unmount_cdrom_mask = 1 << 3 | 1 << 4;
 			schedule_delayed_work(&cdev->cdusbcmd_vzw_unmount_work,30 * HZ);
 		}
 	} else {
@@ -517,6 +518,12 @@ static void adb_closed_callback(void)
 		mutex_unlock(&dev->mutex);
 }
 
+static void adb_read_timeout(void)
+{
+	pr_info("%s: adb read timeout, re-connect to PC\n",__func__);
+
+	android_force_reset();
+}
 
 
 static int rmnet_smd_function_bind_config(struct android_usb_function *f,
@@ -1308,7 +1315,7 @@ static int ncm_function_bind_config(struct android_usb_function *f,
 
     if (c->cdev->gadget)
         c->cdev->gadget->miMaxMtu = ETH_FRAME_LEN_MAX - ETH_HLEN;
-	ret = gether_setup_name(c->cdev->gadget, ncm->ethaddr, "usb");
+	ret = gether_setup_name(c->cdev->gadget, ncm->ethaddr, "ncm");
 	if (ret) {
 		pr_err("%s: gether_setup failed\n", __func__);
 		return ret;
@@ -1422,7 +1429,11 @@ rndis_function_bind_config(struct android_usb_function *f,
 		rndis->ethaddr[0], rndis->ethaddr[1], rndis->ethaddr[2],
 		rndis->ethaddr[3], rndis->ethaddr[4], rndis->ethaddr[5]);
 
-	ret = gether_setup_name(c->cdev->gadget, rndis->ethaddr, "usb");
+	if (rndis->ethaddr[0])
+		ret = gether_setup_name(c->cdev->gadget, NULL, "usb");
+	else
+		ret = gether_setup_name(c->cdev->gadget, rndis->ethaddr,
+								"usb");
 	if (ret) {
 		pr_err("%s: gether_setup failed\n", __func__);
 		return ret;
@@ -2443,13 +2454,19 @@ out:
 static ssize_t bugreport_debug_store(struct device *pdev,
 		struct device_attribute *attr, const char *buff, size_t size)
 {
-	int enable = 0;
+	int enable = 0, ats = 0;
 	sscanf(buff, "%d", &enable);
-	pr_info("bugreport_debug = %d\n", enable);
-	if (enable)
+	ats = board_get_usb_ats();
+
+	if (enable == 5 && ats)
 		bugreport_debug = 1;
-	else
+	else if (enable == 0 && ats) {
 		bugreport_debug = 0;
+		del_timer(&adb_read_timer);
+	}
+
+	pr_info("bugreport_debug = %d, enable = %d, ats = %d\n", bugreport_debug, enable, ats);
+
 	return size;
 }
 

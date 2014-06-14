@@ -846,10 +846,28 @@ register_sdev_failed:
 static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 {
 	int rc = 0;
-	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(p_mctl->sensor_sdev);
-	struct msm_camera_sensor_info *sinfo =
-		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+	struct msm_sensor_ctrl_t *s_ctrl=NULL;
+	struct msm_camera_sensor_info *sinfo=NULL;
+	struct msm_camera_device_platform_data *camdev=NULL;
+    if (!p_mctl) {
+        pr_err("%s p_mctl is null\n", __func__);
+        return -EINVAL;
+    }
+    s_ctrl = get_sctrl(p_mctl->sensor_sdev);
+    if (!s_ctrl) {
+        pr_err("%s s_ctrl is null\n", __func__);
+        return -EINVAL;
+    }
+    sinfo = (struct msm_camera_sensor_info *) s_ctrl->sensordata;
+    if (!sinfo) {
+        pr_err("%s sinfo is null\n", __func__);
+        return -EINVAL;
+    }
+    camdev = sinfo->pdata;
+    if (!camdev) {
+        pr_err("%s camdev is null\n", __func__);
+        return -EINVAL;
+    }
 
 #if 0 
 	v4l2_subdev_call(p_mctl->sensor_sdev, core, ioctl,
@@ -890,6 +908,10 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 
 	
 	if (p_mctl) {
+		if (!p_mctl->axi_sdev) {
+			pr_err("%s axi_sdev is null\n", __func__);
+			return -EINVAL;
+		}
     	if (p_mctl == (struct msm_cam_media_controller *)
     			v4l2_get_subdev_hostdata(p_mctl->axi_sdev)) {
     		if (p_mctl == msm_camera_get_rdi0_mctl() && msm_camera_get_pix0_mctl())

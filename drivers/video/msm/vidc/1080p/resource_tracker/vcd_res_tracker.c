@@ -451,7 +451,7 @@ bail_out:
 
 static struct ion_client *res_trk_create_ion_client(void){
 	struct ion_client *video_client;
-	video_client = msm_ion_client_create(-1, "video_client");
+	video_client = msm_ion_client_create(-1, "vcodec_krnl");
 	return video_client;
 }
 

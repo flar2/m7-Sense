@@ -363,7 +363,8 @@ static void mdp4_dsi_video_wait4dmap(int cndx)
 	if (atomic_read(&vctrl->suspend) > 0)
 		return;
 
-	wait_for_completion(&vctrl->dmap_comp);
+	if (!wait_for_completion_timeout(&vctrl->dmap_comp, HZ / 5))
+		pr_err("wait4dmap timedout!\n");
 }
 
 
@@ -399,7 +400,8 @@ static void mdp4_dsi_video_wait4ov(int cndx)
 	if (atomic_read(&vctrl->suspend) > 0)
 		return;
 
-	wait_for_completion(&vctrl->ov_comp);
+	if (!wait_for_completion_timeout(&vctrl->ov_comp, HZ /5))
+		pr_err("wait4ov timedout!\n");
 }
 
 ssize_t mdp4_dsi_video_show_event(struct device *dev,

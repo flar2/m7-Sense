@@ -68,6 +68,11 @@ struct usbnet {
 #		define EVENT_DEV_WAKING 6
 #		define EVENT_DEV_ASLEEP 7
 #		define EVENT_DEV_OPEN	8
+#define DBG_MSG_LEN   128
+#define DBG_MAX_MSG   500
+	unsigned int    dbg_idx;
+	rwlock_t        dbg_lock;
+	char     (dbgbuf[DBG_MAX_MSG])[DBG_MSG_LEN];   
 };
 
 static inline struct usb_driver *driver_of(struct usb_interface *intf)

@@ -881,7 +881,7 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 		pr_err("%s: Name cannot be null\n", __func__);
 		return ERR_PTR(-EINVAL);
 	}
-	name_len = strnlen(name, 64);
+	name_len = ION_CLIENT_NAME_LENGTH;
 
 	get_task_struct(current->group_leader);
 	task_lock(current->group_leader);
@@ -1389,6 +1389,22 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case ION_IOC_GET_FLAGS:
 		return client->dev->custom_ioctl(client,
 						ION_IOC_GET_FLAGS, arg);
+	case ION_IOC_CLIENT_RENAME:
+	{
+		struct ion_client_name_data data;
+		int len;
+
+		if (copy_from_user(&data, (void __user *)arg,
+					sizeof(struct ion_client_name_data)))
+			return -EFAULT;
+		if(data.len < 0)
+			return -EFAULT;
+		len = (ION_CLIENT_NAME_LENGTH > data.len) ? data.len: ION_CLIENT_NAME_LENGTH;
+		if (copy_from_user(client->name, (void __user *)data.name, len))
+                        return -EFAULT;
+		client->name[len] = '\0';
+		break;
+	}
 	default:
 		return -ENOTTY;
 	}

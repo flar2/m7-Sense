@@ -556,7 +556,6 @@ static int vid_enc_open(struct inode *inode, struct file *file)
 	INFO(" msm_vidc_enc: Inside %s()", __func__);
 
 	mutex_lock(&vid_enc_device_p->lock);
-	keep_dig_voltage_low_in_idle(true);
 	start_cmd = 0;
 	stop_cmd = 0;
 	client_count = vcd_get_num_of_clients();
@@ -619,6 +618,9 @@ static int vid_enc_open(struct inode *inode, struct file *file)
 		mutex_unlock(&vid_enc_device_p->lock);
 		return rc;
 	}
+
+    keep_dig_voltage_low_in_idle(true);
+
 	file->private_data = client_ctx;
 	mutex_unlock(&vid_enc_device_p->lock);
 	return rc;

@@ -677,7 +677,10 @@ EXPORT_SYMBOL(board_serialno);
 
 int board_get_usb_ats(void)
 {
-	return usb_ats;
+	if (get_debug_flag() & DEBUG_FLAG_ENABLE_ATS_FLAG)
+		return 1;
+	else
+		return usb_ats;
 }
 EXPORT_SYMBOL(board_get_usb_ats);
 

@@ -68,6 +68,22 @@ enum {
 			pr_info(x); \
 } while (0)
 
+static void
+dbg_log_event(struct usbnet *dev, char *event)
+{
+	unsigned long flags;
+	unsigned long long t;
+	unsigned long nanosec;
+	write_lock_irqsave(&dev->dbg_lock, flags);
+	t = cpu_clock(smp_processor_id());
+	nanosec = do_div(t, 1000000000)/1000;
+	scnprintf(dev->dbgbuf[dev->dbg_idx], DBG_MSG_LEN, "%5lu.%06lu:%s",
+			(unsigned long)t, nanosec, event);
+	dev->dbg_idx++;
+	dev->dbg_idx = dev->dbg_idx % DBG_MAX_MSG;
+	write_unlock_irqrestore(&dev->dbg_lock, flags);
+}
+
 static ssize_t dbg_mask_store(struct device *d,
 		struct device_attribute *attr,
 		const char *buf, size_t n)
@@ -138,6 +154,15 @@ module_param_cb(rmnet_data_init, &rmnet_init_ops, &rmnet_data_init,
 		S_IRUGO | S_IWUSR);
 
 static void rmnet_usb_setup(struct net_device *, int mux_enabled);
+
+#if defined(CONFIG_MONITOR_STREAMING_PORT_SOCKET) && defined(CONFIG_MSM_NONSMD_PACKET_FILTER)
+#define EXTEND_AUTOSUSPEND_TIMER 3000
+extern bool is_streaming_sock_connectted;
+
+static int original_autosuspend_timer = 0;
+static bool use_extend_suspend_timer = false;
+#endif 
+
 static int rmnet_ioctl(struct net_device *, struct ifreq *, int);
 
 static int rmnet_usb_suspend(struct usb_interface *iface, pm_message_t message)
@@ -185,6 +210,20 @@ static int rmnet_usb_suspend(struct usb_interface *iface, pm_message_t message)
 		usbnet_terminate_urbs(unet);
 		netif_device_attach(unet->net);
 	}
+
+	#if defined(CONFIG_MONITOR_STREAMING_PORT_SOCKET) && defined(CONFIG_MSM_NONSMD_PACKET_FILTER)
+	if (use_extend_suspend_timer) {
+	    if (original_autosuspend_timer != 0) {
+	        struct usb_device	*udev= unet->udev;
+
+	        if (udev) {
+	            use_extend_suspend_timer= false;
+	            pm_runtime_set_autosuspend_delay(&udev->dev, original_autosuspend_timer);
+	            dev_err(&udev->dev, "is_streaming_sock_connectted:%d pm_runtime_set_autosuspend_delay %d\n", is_streaming_sock_connectted, original_autosuspend_timer);
+	        }
+	    }
+	}
+	#endif 
 
 	return 0;
 
@@ -364,6 +403,11 @@ static struct sk_buff *rmnet_usb_tx_fixup(struct usbnet *dev,
 		struct sk_buff *skb, gfp_t flags)
 {
 	struct QMI_QOS_HDR_S	*qmih;
+	struct  mux_hdr *hdr;
+	unsigned int len_before = skb->len;
+	unsigned int len_after;
+	char event[128];
+	bool muxing = false;
 
 	if (test_bit(RMNET_MODE_QOS, &dev->data[0])) {
 		if (test_bit(RMNET_MODE_ALIGNED_QOS, &dev->data[0])) {
@@ -378,14 +422,27 @@ static struct sk_buff *rmnet_usb_tx_fixup(struct usbnet *dev,
 		qmih->flow_id = skb->mark;
 	 }
 
-	if (dev->data[4])
+	if (dev->data[4]) {
+		muxing = true;
 		skb = rmnet_usb_data_mux(skb, dev->data[3]);
+	}
 
 	if (skb)
 		DBG1("[%s] Tx packet #%lu len=%d mark=0x%x\n",
 			dev->net->name, dev->net->stats.tx_packets,
 			skb->len, skb->mark);
 
+	if (!muxing)
+		goto out;
+
+	hdr = (struct mux_hdr *)skb->data;
+	len_after = skb->len;
+	snprintf(event, 128,
+		"len1=%d, len2=%d, mux_id=%d, pad_info=%d, pkt_len_w_pad=%d",
+			len_before, len_after, hdr->mux_id,
+			hdr->padding_info , hdr->pkt_len_w_padding);
+	dbg_log_event(dev, event);
+out:
 	return skb;
 }
 
@@ -445,6 +502,20 @@ static int rmnet_usb_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 		skb->protocol = rmnet_ip_type_trans(skb, dev->net);
 	else 
 		skb->protocol = 0;
+
+	#if defined(CONFIG_MONITOR_STREAMING_PORT_SOCKET) && defined(CONFIG_MSM_NONSMD_PACKET_FILTER)
+	if (is_streaming_sock_connectted) {
+	    if (!use_extend_suspend_timer) {
+	        struct usb_device *udev = dev->udev;
+
+	        if (udev) {
+	            use_extend_suspend_timer = true;
+	            pm_runtime_set_autosuspend_delay(&udev->dev, EXTEND_AUTOSUSPEND_TIMER);
+	            dev_info(&udev->dev, "is_streaming_sock_connectted:%d pm_runtime_set_autosuspend_delay %d\n", is_streaming_sock_connectted, EXTEND_AUTOSUSPEND_TIMER);
+	        }
+	    }
+	}
+	#endif 
 
 	DBG1("[%s] Rx packet #%lu len=%d\n",
 		dev->net->name, dev->net->stats.rx_packets, skb->len);
@@ -812,6 +883,11 @@ static int rmnet_usb_probe(struct usb_interface *iface,
 		
 		pm_runtime_set_autosuspend_delay(&udev->dev, 1000);
 		pm_runtime_set_autosuspend_delay(&udev->parent->dev, 200);
+
+		#if defined(CONFIG_MONITOR_STREAMING_PORT_SOCKET) && defined(CONFIG_MSM_NONSMD_PACKET_FILTER)
+		original_autosuspend_timer = udev->dev.power.autosuspend_delay;
+		dev_info(&udev->dev, "original_autosuspend_timer:%d\n", original_autosuspend_timer);
+		#endif 
 	}
 
 	return 0;

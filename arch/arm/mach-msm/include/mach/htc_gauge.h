@@ -34,6 +34,9 @@ struct htc_gauge {
 	int (*get_battery_id)(int *result);
 	int (*get_battery_soc)(int *result);
 	int (*get_battery_cc)(int *result);
+	int (*store_battery_data)(void);
+	int (*store_battery_ui_soc)(int soc_ui);
+	int (*get_battery_ui_soc)(void);
 	int (*is_battery_temp_fault)(int *result);
 	int (*is_battery_full)(int *result);
 	int (*is_pj_full)(int *result);

@@ -256,6 +256,14 @@ static void rmnet_usb_ctrl_read_timer_expire(unsigned long data)
 {
 	struct rmnet_ctrl_dev *dev = (struct rmnet_ctrl_dev *)data;
 
+	
+	if ( !dev ) {
+		expired_rcvurb = NULL;
+		pr_err("[RMNET][%s] dev is NULL\n", __func__);
+		return;
+	}
+	
+
 	dev_err(dev->devicep, "[RMNET][%s] %s rcv_timer expire !!! \n", __func__, dev->name);
 
 	
@@ -264,9 +272,11 @@ static void rmnet_usb_ctrl_read_timer_expire(unsigned long data)
 		log_rmnet_usb_ctrl_event(dev->intf, "Rx timeout", 0);
 	#endif	
 	
-
-	expired_rcvurb = dev->rcvurb;
-	schedule_delayed_work_on(0, &kill_rcv_urb_delay_work, 10);
+	if( NULL == expired_rcvurb ) {
+		pr_info("[RMNET][%s] Read urb %p expire\n", __func__, expired_rcvurb);
+		expired_rcvurb = dev->rcvurb;
+		schedule_delayed_work_on(0, &kill_rcv_urb_delay_work, 10);
+	}
 }
 #endif	
 
@@ -551,18 +561,26 @@ resubmit_int_urb:
 #endif
 	
 	
-	if (!dev->inturb->anchor) {
-		usb_mark_last_busy(udev);
-		usb_anchor_urb(dev->inturb, &dev->rx_submitted);
-		status = usb_submit_urb(dev->inturb, GFP_ATOMIC);
-		if (status) {
-			usb_unanchor_urb(dev->inturb);
-			if (status != -ENODEV)
-				dev_err(dev->devicep,
-				"%s: Error re-submitting Int URB %d\n",
-				__func__, status);
+	
+	
+	
+	if ( dev->inturb ) {
+		if (!dev->inturb->anchor) {
+			usb_mark_last_busy(udev);
+			usb_anchor_urb(dev->inturb, &dev->rx_submitted);
+			status = usb_submit_urb(dev->inturb, GFP_ATOMIC);
+			if (status) {
+				usb_unanchor_urb(dev->inturb);
+				if (status != -ENODEV)
+					dev_err(dev->devicep,
+					"%s: Error re-submitting Int URB %d\n",
+					__func__, status);
+			}
 		}
+	} else {
+		dev_err(dev->devicep, "%s: dev->inturb is NULL\n", __func__);
 	}
+	
 }
 
 int rmnet_usb_ctrl_start_rx(struct rmnet_ctrl_dev *dev)
@@ -838,7 +856,7 @@ static int rmnet_ctl_open(struct inode *inode, struct file *file)
 					__func__, dev->name);
 
 #ifdef HTC_MDM_RESTART_IF_RMNET_OPEN_TIMEOUT
-		if (jiffies_to_msecs(jiffies - dev->connected_jiffies) > RMNET_OPEN_TIMEOUT_MS) {
+		if ((dev->claimed) && jiffies_to_msecs(jiffies - dev->connected_jiffies) > RMNET_OPEN_TIMEOUT_MS) {
 			dev_err(dev->devicep, "%s[%d]:dev->connected_jiffies:%lu jiffies:%lu\n", __func__, __LINE__, dev->connected_jiffies, jiffies);
 			dev_err(dev->devicep, "%s[%d]:htc_ehci_trigger_mdm_restart!!!\n", __func__, __LINE__);
 			htc_ehci_trigger_mdm_restart();
@@ -1138,6 +1156,27 @@ static const struct file_operations ctrldev_fops = {
 #define HSIC_FAST_INTERRUPT_LATENCY 1
 #define HSIC_SLOW_INTERRUPT_LATENCY 6
 
+#define ITC_BIT(nr)   (1UL << (nr))
+#define RMNET_CTRL_ITC_DISABLE 0
+#define RMNET_CTRL_ITC_ENABLE ITC_BIT(0)
+#define RMNET_CTRL_ITC_INIT ITC_BIT(1) 
+#define RMNET_CTRL_ITC_AP_START ITC_BIT(2) 
+#define RMNET_CTRL_ITC_AP_AUDIO ITC_BIT(2) 
+#define RMNET_CTRL_ITC_AP_ISIS ITC_BIT(3) 
+#define RMNET_CTRL_ITC_AP_VT ITC_BIT(4) 
+#define RMNET_CTRL_ITC_AP_MAX ITC_BIT(4) 
+#define RMNET_CTRL_ITC_AP_COUNT 3 
+
+#define RMNET_CTRL_ITC_AUDIO_INIT RMNET_CTRL_ITC_AP_AUDIO | RMNET_CTRL_ITC_INIT
+#define RMNET_CTRL_ITC_AUDIO_ENABLE RMNET_CTRL_ITC_AP_AUDIO | RMNET_CTRL_ITC_ENABLE
+#define RMNET_CTRL_ITC_AUDIO_DISABLE RMNET_CTRL_ITC_AP_AUDIO | RMNET_CTRL_ITC_DISABLE
+#define RMNET_CTRL_ITC_ISIS_INIT RMNET_CTRL_ITC_AP_ISIS | RMNET_CTRL_ITC_INIT
+#define RMNET_CTRL_ITC_ISIS_ENABLE RMNET_CTRL_ITC_AP_ISIS | RMNET_CTRL_ITC_ENABLE
+#define RMNET_CTRL_ITC_ISIS_DISABLE RMNET_CTRL_ITC_AP_ISIS | RMNET_CTRL_ITC_DISABLE
+#define RMNET_CTRL_ITC_VT_INIT RMNET_CTRL_ITC_AP_VT | RMNET_CTRL_ITC_INIT
+#define RMNET_CTRL_ITC_VT_ENABLE RMNET_CTRL_ITC_AP_VT | RMNET_CTRL_ITC_ENABLE
+#define RMNET_CTRL_ITC_VT_DISABLE RMNET_CTRL_ITC_AP_VT | RMNET_CTRL_ITC_DISABLE
+
 static int enable_shorten_itc_count = 0;
 static int rmnet_ctrl_set_itc( struct rmnet_ctrl_dev *dev, int value ) {
 	int ret = 0;
@@ -1156,17 +1195,17 @@ static int rmnet_ctrl_set_itc( struct rmnet_ctrl_dev *dev, int value ) {
 
 	udev = interface_to_usbdev(dev->intf);
 
-	switch(value) {
-		case 1://enable
-			enable = 1;
-			break;
-		case 0://disable
-			enable = 0;
-			break;
-		default://other
-			pr_info("[%s][%s] value=[%d]\n", __func__, dev->name, value);
-			return -ENODEV;
+	if ( value & RMNET_CTRL_ITC_INIT ) {
+		pr_info("[%s][%s] value=[%d], not support init\n", __func__, dev->name, value);
+		return -ENODEV;
 	}
+
+	if ( value & RMNET_CTRL_ITC_ENABLE ) {
+		enable = 1;
+	} else {
+		enable = 0;
+	}
+
 	
 
 	pr_info("[%s][%s] mutex_lock\n", __func__, dev->name);

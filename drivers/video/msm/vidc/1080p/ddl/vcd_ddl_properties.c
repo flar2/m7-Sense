@@ -1365,12 +1365,21 @@ static u32 ddl_get_enc_property(struct ddl_client_context *ddl,
 			property_hdr->sz &&
 			encoder->seq_header_length <=
 			seq_hdr->sequence_header_len) {
-			memcpy(seq_hdr->sequence_header,
-				encoder->seq_header.align_virtual_addr,
-				encoder->seq_header_length);
-			seq_hdr->sequence_header_len =
-				encoder->seq_header_length;
-			vcd_status = VCD_S_SUCCESS;
+			if (!encoder->seq_header.align_virtual_addr ||
+				encoder->seq_header_length & 0x80000000) {
+				DDL_MSG_ERROR("NULL addr (%p) or negative length (%d)",
+					encoder->seq_header.align_virtual_addr,
+					encoder->seq_header_length);
+				seq_hdr->sequence_header_len = 0;
+				vcd_status = VCD_ERR_NO_SEQ_HDR;
+			} else {
+				memcpy(seq_hdr->sequence_header,
+					encoder->seq_header.align_virtual_addr,
+					encoder->seq_header_length);
+				seq_hdr->sequence_header_len =
+					encoder->seq_header_length;
+				vcd_status = VCD_S_SUCCESS;
+			}
 		}
 	}
 	break;

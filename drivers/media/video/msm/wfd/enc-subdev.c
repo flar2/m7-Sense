@@ -272,7 +272,7 @@ static long venc_open(struct v4l2_subdev *sd, void *arg)
 	int flags = 0;
 	mutex_lock(&venc_p.lock);
 	client_index = venc_get_empty_client_index();
-	if (client_index < 0) {
+	if ((s32)client_index < 0) {
 		WFD_MSG_ERR("No free clients, client_index = %d\n",
 				client_index);
 		rc = -ENODEV;

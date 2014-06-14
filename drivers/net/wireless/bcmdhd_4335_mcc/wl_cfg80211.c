@@ -3356,6 +3356,25 @@ wl_set_key_mgmt(struct net_device *dev, struct cfg80211_connect_params *sme)
 #endif
 		WL_DBG(("setting wpa_auth to %d\n", val));
 
+#ifdef BCMCCX
+		if (val & (WPA_AUTH_CCKM|WPA2_AUTH_CCKM)) {
+			WL_DBG(("SET CCX enable\n"));
+			wldev_iovar_setint_bsscfg(dev, "okc_enable", 0, bssidx);
+			err = wldev_iovar_setint_bsscfg(dev, "ccx_enable", 1, bssidx);
+
+			if (unlikely(err)) {
+				WL_ERR(("could not set ccx_enable (%d)\n", err));
+				return err;
+			}
+		} else {
+			err = wldev_iovar_setint_bsscfg(dev, "ccx_enable", 0, bssidx);
+
+			if (unlikely(err)) {
+				WL_ERR(("could not set ccx_disable (%d)\n", err));
+			}
+		}
+#endif 
+
 
 		err = wldev_iovar_setint_bsscfg(dev, "wpa_auth", val, bssidx);
 		if (unlikely(err)) {
@@ -8063,8 +8082,15 @@ wl_notify_connect_status(struct wl_priv *wl, bcm_struct_cfgdev *cfgdev,
 				scb_val_t scbval;
 				u8 *curbssid = wl_read_prof(wl, ndev, WL_PROF_BSSID);
 				s32 reason = 0;
-				if (event == WLC_E_DEAUTH_IND || event == WLC_E_DISASSOC_IND)
+				if (event == WLC_E_DEAUTH_IND || event == WLC_E_DISASSOC_IND){
 					reason = ntoh32(e->reason);
+                }
+                
+                else if (ntoh32(e->reason) == WLC_E_LINK_BCN_LOSS) {
+                    printk("Beacon miss!\n");
+                    reason = 8;
+                }
+                
 				
 				reason = (reason == WLAN_REASON_UNSPECIFIED)? 0 : reason;
 

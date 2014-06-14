@@ -247,7 +247,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"BR", "BR", 2},
 	{"CA", "CA", 31},
 	{"CH", "CH", 3},
-	{"CN", "CN", 7},
+	{"CN", "CN", 29},
 	{"CY", "CY", 1},
 	{"CZ", "CZ", 3},
 	{"DE", "DE", 6},

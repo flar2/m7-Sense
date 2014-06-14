@@ -6018,14 +6018,13 @@ msmsdcc_probe(struct platform_device *pdev)
 			pr_warning("%s: Failed to create emmc_bkops entry\n",
 				mmc_hostname(host->mmc));
 
-		host->cam_control = create_proc_entry("write_to_control", 0666, NULL);
+		host->cam_control = create_proc_entry("write_to_control", 0660, NULL);
 		if (host->cam_control) {
 			host->cam_control->read_proc = msmsdcc_proc_cam_control_read;
 			host->cam_control->write_proc = msmsdcc_proc_cam_control_set;
-			
 			host->cam_control->data = (void *) host->mmc;
 		} else
-			pr_warning("%s: Failed to create emmc_bkops entry\n",
+			pr_warning("%s: Failed to create write_to_control entry\n",
 					mmc_hostname(host->mmc));
 	}
 	if(is_sd_platform(host->plat)) {

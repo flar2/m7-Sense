@@ -2098,7 +2098,7 @@ int vid_dec_open_client(struct video_client_ctx **vid_clnt_ctx, int flags)
 	u8 client_count;
 
 	INFO("msm_vidc_dec: Inside %s()", __func__);
-	keep_dig_voltage_low_in_idle(true);
+
 	if (!vid_clnt_ctx) {
 		ERR("Invalid input\n");
 		return -EINVAL;
@@ -2159,6 +2159,9 @@ int vid_dec_open_client(struct video_client_ctx **vid_clnt_ctx, int flags)
 		ERR("vcd_open returned error: %u", rc);
 		goto client_failure;
 	}
+
+    keep_dig_voltage_low_in_idle(true);
+
 	client_ctx->seq_header_set = false;
 	*vid_clnt_ctx = client_ctx;
 client_failure:
