@@ -322,4 +322,5 @@ config EXFAT_VERSION
 	string "Tuxera EXFAT version"
 	depends on EXFAT_FS
 	default "target/htc.d/htc"
+
 endmenu
